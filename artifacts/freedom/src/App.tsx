@@ -6,6 +6,7 @@ import { FreedomProvider } from "@/lib/context";
 import Layout from "@/components/layout";
 import Home from "@/pages/home";
 import Journal from "@/pages/journal";
+import Community from "@/pages/community";
 import Fortress from "@/pages/fortress";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
@@ -18,6 +19,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/journal" component={Journal} />
+        <Route path="/community" component={Community} />
         <Route path="/fortress" component={Fortress} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

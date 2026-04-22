@@ -7,11 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function Settings() {
-  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll } = useFreedom();
-  
+  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName } = useFreedom();
+
   const [resetStep, setResetStep] = useState(1);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [isResetOpen, setIsResetOpen] = useState(false);
+  const [nameDraft, setNameDraft] = useState(appName);
+  const [nameMessage, setNameMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  const handleSaveName = () => {
+    const result = setAppName(nameDraft);
+    if (result.ok) {
+      setNameMessage({ kind: "ok", text: "Name saved." });
+    } else {
+      setNameMessage({ kind: "err", text: result.error || "Could not save name." });
+    }
+    setTimeout(() => setNameMessage(null), 3000);
+  };
 
   const handleExport = () => {
     const data = {
@@ -50,6 +62,48 @@ export default function Settings() {
       </div>
 
       <div className="space-y-6">
+        <div className="space-y-4">
+          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
+            App Name
+          </h3>
+          <div className="bg-card border border-border p-4 rounded-lg space-y-3">
+            <label className="text-xs text-muted-foreground block">
+              Choose your own name for this app. Must be unique and appropriate.
+            </label>
+            <div className="flex gap-2">
+              <Input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={24}
+                placeholder="My Freedom"
+                className="bg-background border-border text-foreground"
+                data-testid="input-app-name"
+              />
+              <Button
+                onClick={handleSaveName}
+                disabled={nameDraft.trim() === appName.trim() || !nameDraft.trim()}
+                className="font-mono uppercase tracking-widest text-xs"
+                data-testid="button-save-name"
+              >
+                Save
+              </Button>
+            </div>
+            {nameMessage && (
+              <p
+                className={`text-xs font-mono ${
+                  nameMessage.kind === "ok" ? "text-primary" : "text-destructive"
+                }`}
+                data-testid="text-name-message"
+              >
+                {nameMessage.text}
+              </p>
+            )}
+            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70">
+              Currently: {appName}
+            </p>
+          </div>
+        </div>
+
         <div className="space-y-4">
           <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
             Commitment
@@ -168,7 +222,7 @@ export default function Settings() {
 
         <div className="pt-8 pb-4 text-center">
           <p className="text-xs font-mono text-muted-foreground/50 uppercase tracking-widest">
-            Freedom v1.0.0
+            {appName} v1.0.3
           </p>
         </div>
       </div>

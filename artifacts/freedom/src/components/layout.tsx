@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Clock, BookOpen, Shield, Settings, AlertCircle } from "lucide-react";
+import { Clock, BookOpen, Shield, Settings, AlertCircle, Users } from "lucide-react";
 import { useFreedom } from "@/lib/context";
 import UrgeSurfModal from "./urge-surf-modal";
 
 const navItems = [
   { path: "/", icon: Clock, label: "Clock" },
   { path: "/journal", icon: BookOpen, label: "Journal" },
+  { path: "/community", icon: Users, label: "Community" },
   { path: "/fortress", icon: Shield, label: "Fortress" },
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
@@ -33,12 +34,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Floating Urge Button - only show if not in urge mode */}
+      {/* Floating Urge Button - only show if not in urge mode. Sits above bottom nav. */}
       {!isUrgeSurfing && (
         <button
           onClick={() => setIsUrgeSurfing(true)}
-          style={{ bottom: "20px", right: "20px" }}
-          className="fixed z-40 bg-primary text-primary-foreground font-mono font-bold uppercase tracking-widest text-sm px-5 py-3 rounded-full shadow-xl shadow-primary/30 flex items-center gap-2 active:scale-95 transition-transform hover:bg-accent"
+          style={{
+            bottom: "calc(80px + env(safe-area-inset-bottom))",
+            right: "16px",
+          }}
+          className="fixed z-[60] bg-primary text-primary-foreground font-mono font-bold uppercase tracking-widest text-sm px-5 py-3 rounded-full shadow-xl shadow-primary/30 flex items-center gap-2 active:scale-95 transition-transform hover:bg-accent"
+          data-testid="button-urge-floating"
         >
           <AlertCircle size={18} />
           I have an urge

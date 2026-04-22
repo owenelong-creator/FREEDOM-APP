@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Trash2 } from "lucide-react";
-import { useFreedom, JournalEntry } from "@/lib/context";
+import { useFreedom } from "@/lib/context";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const COMMON_TAGS = [
   "bored", "lonely", "tired", "saw something", 
@@ -14,6 +15,14 @@ export default function Journal() {
   const { journalEntries, addJournalEntry, deleteJournalEntry } = useFreedom();
   const [text, setText] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const confirmDelete = () => {
+    if (pendingDeleteId) {
+      deleteJournalEntry(pendingDeleteId);
+      setPendingDeleteId(null);
+    }
+  };
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => 
@@ -119,8 +128,9 @@ export default function Journal() {
                   {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true })}
                 </span>
                 <button 
-                  onClick={() => deleteJournalEntry(entry.id)}
+                  onClick={() => setPendingDeleteId(entry.id)}
                   className="text-muted-foreground/50 hover:text-destructive transition-colors"
+                  data-testid={`button-delete-${entry.id}`}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -145,6 +155,33 @@ export default function Journal() {
           ))
         )}
       </div>
+
+      <Dialog open={!!pendingDeleteId} onOpenChange={(o) => !o && setPendingDeleteId(null)}>
+        <DialogContent className="bg-card border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground font-serif text-xl">Delete log?</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Do you want to delete this log? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row justify-between sm:justify-between pt-4">
+            <Button
+              variant="ghost"
+              onClick={() => setPendingDeleteId(null)}
+              data-testid="button-cancel-delete"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              data-testid="button-confirm-delete"
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

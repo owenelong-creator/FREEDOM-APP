@@ -1,0 +1,14 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "d5q9CSb9ZE4Q8j1zcvfD4"
+uri = "file://artifacts/freedom/public/icon-512.png"
+type = "image"
+title = "Freedom app icon 512"
+
+[[generated]]
+id = "kWXEvFNDLlLs0gPpZHzsi"
+uri = "file://artifacts/freedom/public/icon-192.png"
+type = "image"
+title = "Freedom app icon 192"

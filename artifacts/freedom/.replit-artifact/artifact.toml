@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Freedom"
+version = "1.0.0"
+id = "artifacts/freedom"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24931
+
+[services.development]
+run = "pnpm --filter @workspace/freedom run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/freedom", "run", "build" ]
+publicDir = "artifacts/freedom/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24931"
+BASE_PATH = "/"

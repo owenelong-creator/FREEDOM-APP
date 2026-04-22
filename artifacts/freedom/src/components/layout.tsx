@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Clock, BookOpen, Shield, Settings, AlertCircle } from "lucide-react";
 import { useFreedom } from "@/lib/context";
@@ -13,6 +14,15 @@ const navItems = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { isUrgeSurfing, setIsUrgeSurfing } = useFreedom();
+  const [firstTapDone, setFirstTapDone] = useState(false);
+
+  const handleFirstTap = () => {
+    if (firstTapDone) return;
+    setFirstTapDone(true);
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try { navigator.vibrate([400, 100, 400]); } catch { /* ignore */ }
+    }
+  };
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground overflow-x-hidden">
@@ -61,6 +71,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Urge Surf Modal Overlay */}
       {isUrgeSurfing && <UrgeSurfModal />}
+
+      {/* First-tap rumble overlay — invisible, captures one tap then disappears */}
+      {!firstTapDone && (
+        <div
+          onPointerDown={handleFirstTap}
+          className="fixed inset-0 z-[9999] bg-transparent"
+          aria-hidden="true"
+          data-testid="overlay-first-tap"
+        />
+      )}
     </div>
   );
 }

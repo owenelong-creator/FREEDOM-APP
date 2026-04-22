@@ -16,21 +16,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground overflow-x-hidden">
-      <main className="flex-1 w-full max-w-md mx-auto pb-24 relative px-4">
+      <main
+        className="flex-1 w-full max-w-md mx-auto relative px-4"
+        style={{ paddingBottom: "calc(120px + env(safe-area-inset-bottom))" }}
+      >
         {children}
       </main>
 
       {/* Floating Urge Button - only show if not in urge mode */}
       {!isUrgeSurfing && (
-        <div className="fixed bottom-20 left-0 right-0 z-40 pointer-events-none flex justify-center px-4">
-          <button
-            onClick={() => setIsUrgeSurfing(true)}
-            className="pointer-events-auto bg-primary text-primary-foreground font-mono font-bold uppercase tracking-widest px-8 py-3 rounded-full shadow-lg flex items-center gap-2 active:scale-95 transition-transform"
-          >
-            <AlertCircle size={20} />
-            I have an urge
-          </button>
-        </div>
+        <button
+          onClick={() => setIsUrgeSurfing(true)}
+          style={{ bottom: "20px", right: "20px" }}
+          className="fixed z-40 bg-primary text-primary-foreground font-mono font-bold uppercase tracking-widest text-sm px-5 py-3 rounded-full shadow-xl shadow-primary/30 flex items-center gap-2 active:scale-95 transition-transform hover:bg-accent"
+        >
+          <AlertCircle size={18} />
+          I have an urge
+        </button>
       )}
 
       {/* Bottom Tab Bar */}

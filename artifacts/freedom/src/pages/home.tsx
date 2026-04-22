@@ -145,19 +145,52 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="flex flex-col items-center pt-8 space-y-4">
-        {urgeSessions.length > 0 && (
-          <div className="text-xs font-mono text-muted-foreground">
-            You've surfed {urgeSessions.length} urge{urgeSessions.length !== 1 ? 's' : ''}
-          </div>
-        )}
+      <div className="pt-4">
+        <div className="bg-card border border-card-border rounded-2xl p-6 space-y-6">
+          <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground text-center">
+            Your Stats
+          </h3>
 
-        <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" className="text-destructive/50 hover:text-destructive hover:bg-destructive/10 text-xs font-mono uppercase tracking-widest">
-              Reset Timer
-            </Button>
-          </DialogTrigger>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="space-y-1">
+              <div className="text-3xl font-bold tabular-nums" style={{ color: "hsl(var(--stat))" }}>
+                {days}
+              </div>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Days
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-3xl font-bold tabular-nums" style={{ color: "hsl(var(--stat))" }}>
+                {urgeSessions.length}
+              </div>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Urges Surfed
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-3xl font-bold tabular-nums" style={{ color: "hsl(var(--stat))" }}>
+                {MILESTONES.filter((m) => days >= m.days).length}
+              </div>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Milestones
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-border/60 flex flex-col items-center">
+            <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-muted-foreground/70 mb-3">
+              Danger Zone
+            </span>
+            <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+              <DialogTrigger asChild>
+                <button
+                  className="danger-pulse bg-destructive text-destructive-foreground font-mono font-bold uppercase tracking-widest text-xs px-8 py-3 rounded-full hover:brightness-110 active:scale-95 transition-all"
+                  data-testid="button-danger-zone-reset"
+                >
+                  Reset Timer
+                </button>
+              </DialogTrigger>
           <DialogContent className="bg-card border-border sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-foreground font-serif text-2xl">Reset Timer</DialogTitle>
@@ -197,6 +230,8 @@ export default function Home() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+          </div>
+        </div>
       </div>
     </div>
   );

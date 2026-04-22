@@ -91,11 +91,11 @@ export default function Fortress() {
                 const isChecked = fortressItems.includes(item.id);
                 return (
                   <div key={item.id} className="flex items-start space-x-3">
-                    <Checkbox 
-                      id={item.id} 
+                    <Checkbox
+                      id={item.id}
                       checked={isChecked}
                       onCheckedChange={() => toggleFortressItem(item.id)}
-                      className="mt-1 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground border-muted-foreground/50"
+                      className="mt-1 data-[state=checked]:bg-success data-[state=checked]:text-success-foreground data-[state=checked]:border-success border-muted-foreground/50"
                     />
                     <div className="space-y-1">
                       <Label 

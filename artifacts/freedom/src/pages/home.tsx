@@ -25,6 +25,20 @@ export default function Home() {
   const [resetStep, setResetStep] = useState(1);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [isResetOpen, setIsResetOpen] = useState(false);
+  const [encouragement, setEncouragement] = useState<string | null>(null);
+
+  const QUOTES = [
+    "Every setback is a setup for a comeback.",
+    "You're not starting over, you're starting stronger.",
+    "This is your moment. Own it.",
+    "Progress isn't perfect, but it's yours.",
+    "One day at a time. You've got this.",
+    "The only bad day is the one you didn't learn from.",
+    "Fall down seven times, stand up eight.",
+    "You are stronger than your strongest excuse.",
+    "Small steps forward are still forward.",
+    "Your future self is already proud.",
+  ];
 
   useEffect(() => {
     if (!startDate) return;
@@ -79,6 +93,10 @@ export default function Home() {
     setIsResetOpen(false);
     setResetStep(1);
     setResetConfirmText("");
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try { navigator.vibrate(50); } catch { /* ignore */ }
+    }
+    setEncouragement(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
   };
 
   return (
@@ -233,6 +251,29 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!encouragement} onOpenChange={(o) => !o && setEncouragement(null)}>
+        <DialogContent
+          className="bg-card border-border p-0 overflow-hidden sm:max-w-md w-[88vw]"
+          style={{ height: "55vh" }}
+        >
+          <div className="h-full w-full flex flex-col items-center justify-center text-center px-6 py-8 space-y-8">
+            <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary">
+              Fresh Start
+            </div>
+            <p className="text-foreground font-serif text-2xl leading-snug max-w-xs">
+              {encouragement}
+            </p>
+            <button
+              onClick={() => setEncouragement(null)}
+              className="bg-primary text-primary-foreground font-mono font-bold uppercase tracking-widest text-xs px-8 py-3 rounded-full hover:bg-accent active:scale-95 transition-all"
+              data-testid="button-encouragement-close"
+            >
+              I've Got This
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

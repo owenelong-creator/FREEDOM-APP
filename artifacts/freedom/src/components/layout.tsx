@@ -41,9 +41,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {navItems.map(({ path, icon: Icon, label }) => {
             const isActive = location === path;
             return (
-              <Link 
-                key={path} 
+              <Link
+                key={path}
                 href={path}
+                onClick={() => {
+                  if (!isActive && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+                    try { navigator.vibrate(30); } catch { /* ignore */ }
+                  }
+                }}
                 className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}`}
               >
                 <Icon size={24} strokeWidth={isActive ? 2 : 1.5} />

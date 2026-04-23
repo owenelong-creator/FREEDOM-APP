@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { format, startOfWeek, addWeeks, isSameWeek } from "date-fns";
-import { Shield, Sun, Moon } from "lucide-react";
+import { Shield, Sun, Moon, LogOut, UserCircle } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useFreedom } from "@/lib/context";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 export default function Settings() {
   const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme } = useFreedom();
+  const { user, signOut, configured } = useAuth();
 
   // Group urges into the last 8 weeks
   const weeklyUrges = useMemo(() => {
@@ -77,6 +79,38 @@ export default function Settings() {
       </div>
 
       <div className="space-y-6">
+        {configured && (
+          <div className="space-y-4">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
+              Account
+            </h3>
+            <div className="bg-card border border-border p-4 rounded-lg flex items-center justify-between" data-testid="account-card">
+              <div className="flex items-center gap-3 min-w-0">
+                <UserCircle size={28} className="text-primary shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm text-foreground font-medium truncate" data-testid="account-email">
+                    {user?.email || user?.displayName || "Signed in"}
+                  </div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    {user ? "Synced across devices" : "Not signed in"}
+                  </div>
+                </div>
+              </div>
+              {user && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => signOut()}
+                  className="font-mono text-xs gap-1"
+                  data-testid="button-sign-out"
+                >
+                  <LogOut size={14} /> Sign out
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
           <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
             App Name
@@ -326,7 +360,7 @@ export default function Settings() {
 
         <div className="pt-8 pb-4 text-center">
           <p className="text-xs font-mono text-muted-foreground/50 uppercase tracking-widest">
-            {appName} v1.0.3
+            {appName} v1.2.0
           </p>
         </div>
       </div>

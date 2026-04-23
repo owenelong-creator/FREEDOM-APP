@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useFirestoreSync } from "./sync";
 
 export type UrgeSession = {
   timestamp: string;
@@ -65,6 +66,27 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
   }, [theme]);
 
   const setTheme = useCallback((t: "light" | "dark") => setThemeState(t), []);
+
+  // Sync user data with Firestore when signed in. localStorage stays the
+  // device-side source of truth, so the app keeps working offline.
+  useFirestoreSync({
+    startDate,
+    urgeSessions,
+    journalEntries,
+    fortressItems,
+    appName,
+    myPosts,
+    reactions,
+    theme,
+    onRemoteLoad: (remote) => {
+      setStartDate(remote.startDate);
+      setUrgeSessions(remote.urgeSessions as UrgeSession[]);
+      setJournalEntries(remote.journalEntries as JournalEntry[]);
+      setFortressItems(remote.fortressItems);
+      if (remote.appName) setAppNameState(remote.appName);
+      if (remote.theme) setThemeState(remote.theme);
+    },
+  });
 
   useEffect(() => {
     if (startDate) localStorage.setItem("freedom_start", startDate);

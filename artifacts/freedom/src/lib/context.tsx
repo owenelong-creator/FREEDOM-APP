@@ -15,13 +15,18 @@ export type JournalEntry = {
 
 export type CommunityPost = {
   id: string;
+  uid?: string;
   username: string;
   message: string;
   streak: string;
   timestamp: string;
+  editedAt?: string | null;
   reactions: Record<string, number>;
   isMine?: boolean;
 };
+
+export const USERNAME_COOLDOWN_DAYS = 30;
+export const USERNAME_COOLDOWN_MS = USERNAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
 
 export type FreedomContextType = {
   startDate: string | null;
@@ -37,6 +42,8 @@ export type FreedomContextType = {
   setIsUrgeSurfing: (val: boolean) => void;
   appName: string;
   setAppName: (name: string) => { ok: boolean; error?: string };
+  usernameChangedAt: number | null;
+  usernameCooldownRemainingMs: number;
   myPosts: CommunityPost[];
   addMyPost: (post: CommunityPost) => void;
   reactions: Record<string, Record<string, number>>;
@@ -55,6 +62,10 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
   const [fortressItems, setFortressItems] = useState<string[]>(() => JSON.parse(localStorage.getItem("freedom_fortress") || "[]"));
   const [isUrgeSurfing, setIsUrgeSurfing] = useState(false);
   const [appName, setAppNameState] = useState<string>(() => localStorage.getItem("freedom_app_name") || "Freedom");
+  const [usernameChangedAt, setUsernameChangedAt] = useState<number | null>(() => {
+    const v = localStorage.getItem("freedom_username_changed_at");
+    return v ? Number(v) || null : null;
+  });
   const [myPosts, setMyPosts] = useState<CommunityPost[]>(() => JSON.parse(localStorage.getItem("freedom_my_posts") || "[]"));
   const [reactions, setReactions] = useState<Record<string, Record<string, number>>>(() => JSON.parse(localStorage.getItem("freedom_reactions") || "{}"));
   const [theme, setThemeState] = useState<"light" | "dark">(() => (localStorage.getItem("freedom_theme") as "light" | "dark") || "dark");
@@ -146,6 +157,23 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     if (!trimmed) return { ok: false, error: "Name cannot be empty." };
     if (trimmed.length > 24) return { ok: false, error: "Name must be 24 characters or less." };
 
+    // No-op if it's the same name — don't trigger the cooldown.
+    if (trimmed.toLowerCase() === appName.trim().toLowerCase()) {
+      return { ok: true };
+    }
+
+    // 30-day cooldown between username changes.
+    if (usernameChangedAt) {
+      const elapsed = Date.now() - usernameChangedAt;
+      if (elapsed < USERNAME_COOLDOWN_MS) {
+        const daysLeft = Math.ceil((USERNAME_COOLDOWN_MS - elapsed) / (24 * 60 * 60 * 1000));
+        return {
+          ok: false,
+          error: `You can change your username again in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`,
+        };
+      }
+    }
+
     const BLOCKED_WORDS = [
       "fuck","shit","bitch","ass","asshole","damn","cunt","dick","pussy","cock","slut","whore",
       "porn","sex","nigger","nigga","faggot","fag","retard","rape","nazi","kill","drugs","weed",
@@ -169,9 +197,16 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     const previous = appName;
     const updated = [...usedNames.filter((n) => n.toLowerCase() !== previous.toLowerCase()), trimmed];
     localStorage.setItem("freedom_used_names", JSON.stringify(updated));
+    const now = Date.now();
+    localStorage.setItem("freedom_username_changed_at", String(now));
+    setUsernameChangedAt(now);
     setAppNameState(trimmed);
     return { ok: true };
-  }, [appName]);
+  }, [appName, usernameChangedAt]);
+
+  const usernameCooldownRemainingMs = usernameChangedAt
+    ? Math.max(0, USERNAME_COOLDOWN_MS - (Date.now() - usernameChangedAt))
+    : 0;
 
   const addMyPost = useCallback((post: CommunityPost) => {
     setMyPosts((prev) => [post, ...prev]);
@@ -207,6 +242,8 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
         setIsUrgeSurfing,
         appName,
         setAppName,
+        usernameChangedAt,
+        usernameCooldownRemainingMs,
         myPosts,
         addMyPost,
         reactions,

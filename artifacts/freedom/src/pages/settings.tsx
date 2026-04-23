@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function Settings() {
-  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme } = useFreedom();
+  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme, usernameCooldownRemainingMs } = useFreedom();
   const { user, signOut, configured } = useAuth();
 
   // Group urges into the last 8 weeks
@@ -113,11 +113,11 @@ export default function Settings() {
 
         <div className="space-y-4">
           <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
-            App Name
+            Username
           </h3>
           <div className="bg-card border border-border p-4 rounded-lg space-y-3">
             <label className="text-xs text-muted-foreground block">
-              Choose your own name for this app. Must be unique and appropriate.
+              Your username appears on community posts. You can change it once every 30 days.
             </label>
             <div className="flex gap-2">
               <Input
@@ -125,18 +125,27 @@ export default function Settings() {
                 onChange={(e) => setNameDraft(e.target.value)}
                 maxLength={24}
                 placeholder="My Freedom"
+                disabled={usernameCooldownRemainingMs > 0}
                 className="bg-background border-border text-foreground"
                 data-testid="input-app-name"
               />
               <Button
                 onClick={handleSaveName}
-                disabled={nameDraft.trim() === appName.trim() || !nameDraft.trim()}
+                disabled={nameDraft.trim() === appName.trim() || !nameDraft.trim() || usernameCooldownRemainingMs > 0}
                 className="font-mono uppercase tracking-widest text-xs"
                 data-testid="button-save-name"
               >
                 Save
               </Button>
             </div>
+            {usernameCooldownRemainingMs > 0 && (
+              <p
+                className="text-[10px] font-mono uppercase tracking-widest text-stat"
+                data-testid="text-username-cooldown"
+              >
+                Locked · {Math.ceil(usernameCooldownRemainingMs / (24 * 60 * 60 * 1000))} days until you can change again
+              </p>
+            )}
             {nameMessage && (
               <p
                 className={`text-xs font-mono ${
@@ -148,7 +157,7 @@ export default function Settings() {
               </p>
             )}
             <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70">
-              Currently: {appName}
+              Currently: @{appName}
             </p>
           </div>
         </div>
@@ -360,7 +369,7 @@ export default function Settings() {
 
         <div className="pt-8 pb-4 text-center">
           <p className="text-xs font-mono text-muted-foreground/50 uppercase tracking-widest">
-            {appName} v1.2.0
+            {appName} v1.3.1
           </p>
         </div>
       </div>

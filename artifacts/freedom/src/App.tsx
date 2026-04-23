@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { FreedomProvider } from "@/lib/context";
 import { AuthProvider } from "@/lib/auth-context";
 import AuthGate from "@/components/auth-gate";
+import WelcomeModal from "@/components/welcome-modal";
 import Layout from "@/components/layout";
 import Home from "@/pages/home";
 import Journal from "@/pages/journal";
@@ -40,6 +41,7 @@ function App() {
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                 <Router />
               </WouterRouter>
+              <WelcomeModal />
               <Toaster />
             </TooltipProvider>
           </FreedomProvider>

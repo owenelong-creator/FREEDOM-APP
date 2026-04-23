@@ -9,6 +9,7 @@ import {
   addDoc,
   doc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   increment,
   isFirebaseConfigured,
@@ -17,10 +18,17 @@ import { useAuth } from "./auth-context";
 import type { CommunityPost } from "./context";
 
 const POSTS_COLLECTION = "posts";
-// Cached snapshot of the global feed used when offline. Distinct from
-// `freedom_my_posts` (the legacy per-user posts list) to avoid collisions
-// where the cache would get uploaded as a user's "own posts".
+const REPORTS_COLLECTION = "reports";
 const LOCAL_KEY = "freedom_community_cache";
+
+export type CommunityComment = {
+  id: string;
+  uid: string;
+  username: string;
+  message: string;
+  timestamp: string;
+  editedAt?: string | null;
+};
 
 function readLocal(): CommunityPost[] {
   try {
@@ -38,11 +46,6 @@ function writeLocal(posts: CommunityPost[]) {
   }
 }
 
-/**
- * Subscribe to the global community feed. When Firestore is configured we
- * stream the latest posts; otherwise we fall back to whatever the user has
- * stored locally so the app still works offline / unconfigured.
- */
 export function useCommunityFeed(maxPosts = 100) {
   const [posts, setPosts] = useState<CommunityPost[]>(() => readLocal());
   const [online, setOnline] = useState<boolean>(isFirebaseConfigured);
@@ -59,21 +62,26 @@ export function useCommunityFeed(maxPosts = 100) {
       (snap) => {
         const list: CommunityPost[] = snap.docs.map((d) => {
           const data = d.data() as {
+            uid?: string;
             username?: string;
             message?: string;
             streak?: string;
             createdAt?: { toMillis?: () => number };
+            editedAt?: { toMillis?: () => number };
             reactions?: Record<string, number>;
-            uid?: string;
           };
           return {
             id: d.id,
+            uid: data.uid,
             username: data.username || "anon",
             message: data.message || "",
             streak: data.streak || "Day 1",
             timestamp: data.createdAt?.toMillis
               ? new Date(data.createdAt.toMillis()).toISOString()
               : new Date().toISOString(),
+            editedAt: data.editedAt?.toMillis
+              ? new Date(data.editedAt.toMillis()).toISOString()
+              : null,
             reactions: data.reactions || {},
           };
         });
@@ -109,7 +117,6 @@ export function useAddCommunityPost() {
         });
         return;
       }
-      // Offline / unconfigured fallback: stash locally so it shows in the feed.
       const local = readLocal();
       const newPost: CommunityPost = {
         id: `local-${Date.now()}`,
@@ -126,16 +133,152 @@ export function useAddCommunityPost() {
   );
 }
 
+export function useUpdateCommunityPost() {
+  return useCallback(async (postId: string, message: string) => {
+    if (!db || postId.startsWith("local-")) return;
+    const ref = doc(db, POSTS_COLLECTION, postId);
+    await updateDoc(ref, { message, editedAt: serverTimestamp() });
+  }, []);
+}
+
+export function useDeleteCommunityPost() {
+  return useCallback(async (postId: string) => {
+    if (!db || postId.startsWith("local-")) return;
+    await deleteDoc(doc(db, POSTS_COLLECTION, postId));
+  }, []);
+}
+
 export function useToggleCommunityReaction() {
   return useCallback(async (postId: string, emoji: string, currentlyLiked: boolean) => {
-    if (!db || postId.startsWith("local-")) return; // local-only posts can't update server reactions
+    if (!db || postId.startsWith("local-")) return;
     try {
       const ref = doc(db, POSTS_COLLECTION, postId);
       const fieldPath = `reactions.${emoji}`;
-      // Atomic +1 / -1 so concurrent reactions from other users aren't clobbered.
       await updateDoc(ref, { [fieldPath]: increment(currentlyLiked ? -1 : 1) });
     } catch (e) {
       console.warn("[freedom] reaction sync failed (kept locally)", e);
     }
   }, []);
+}
+
+/**
+ * Subscribe to comments under a post. Comments live in a `comments`
+ * subcollection on each post and are ordered oldest-first like a thread.
+ */
+export function usePostComments(postId: string, enabled = true) {
+  const [comments, setComments] = useState<CommunityComment[]>([]);
+
+  useEffect(() => {
+    if (!db || !enabled || postId.startsWith("local-")) {
+      setComments([]);
+      return;
+    }
+    const q = query(
+      collection(db, POSTS_COLLECTION, postId, "comments"),
+      orderBy("createdAt", "asc"),
+      limit(200)
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list: CommunityComment[] = snap.docs.map((d) => {
+          const data = d.data() as {
+            uid?: string;
+            username?: string;
+            message?: string;
+            createdAt?: { toMillis?: () => number };
+            editedAt?: { toMillis?: () => number };
+          };
+          return {
+            id: d.id,
+            uid: data.uid || "",
+            username: data.username || "anon",
+            message: data.message || "",
+            timestamp: data.createdAt?.toMillis
+              ? new Date(data.createdAt.toMillis()).toISOString()
+              : new Date().toISOString(),
+            editedAt: data.editedAt?.toMillis
+              ? new Date(data.editedAt.toMillis()).toISOString()
+              : null,
+          };
+        });
+        setComments(list);
+      },
+      (err) => {
+        console.warn("[freedom] comments subscription failed", err);
+      }
+    );
+    return unsub;
+  }, [postId, enabled]);
+
+  return comments;
+}
+
+export function useAddComment() {
+  const { user } = useAuth();
+  return useCallback(
+    async (postId: string, message: string, username: string) => {
+      if (!db || !user || postId.startsWith("local-")) {
+        throw new Error("Sign in to leave a comment.");
+      }
+      await addDoc(collection(db, POSTS_COLLECTION, postId, "comments"), {
+        uid: user.uid,
+        username,
+        message,
+        createdAt: serverTimestamp(),
+      });
+    },
+    [user]
+  );
+}
+
+export function useUpdateComment() {
+  return useCallback(async (postId: string, commentId: string, message: string) => {
+    if (!db || postId.startsWith("local-")) return;
+    await updateDoc(doc(db, POSTS_COLLECTION, postId, "comments", commentId), {
+      message,
+      editedAt: serverTimestamp(),
+    });
+  }, []);
+}
+
+export function useDeleteComment() {
+  return useCallback(async (postId: string, commentId: string) => {
+    if (!db || postId.startsWith("local-")) return;
+    await deleteDoc(doc(db, POSTS_COLLECTION, postId, "comments", commentId));
+  }, []);
+}
+
+/**
+ * File a report on a post or comment. Reports go into a top-level `reports`
+ * collection so the app owner can review them in the Firebase console.
+ */
+export function useReportContent() {
+  const { user } = useAuth();
+  return useCallback(
+    async (input: {
+      kind: "post" | "comment";
+      postId: string;
+      commentId?: string;
+      reason?: string;
+      contentSnapshot: string;
+      authorUid?: string;
+      authorUsername?: string;
+    }) => {
+      if (!db) throw new Error("Reporting is offline right now.");
+      await addDoc(collection(db, REPORTS_COLLECTION), {
+        kind: input.kind,
+        postId: input.postId,
+        commentId: input.commentId || null,
+        reason: input.reason || "",
+        contentSnapshot: input.contentSnapshot.slice(0, 500),
+        authorUid: input.authorUid || null,
+        authorUsername: input.authorUsername || null,
+        reporterUid: user?.uid || null,
+        status: "open",
+        createdAt: serverTimestamp(),
+      });
+    },
+    [user]
+  );
 }

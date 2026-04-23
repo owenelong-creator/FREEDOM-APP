@@ -85,6 +85,15 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [startDate]);
 
+  // Hooks MUST be called unconditionally before any early return — moving
+  // dailyQuote up here fixes the "Rendered more hooks than during the previous
+  // render" crash that fired the moment the user picked a start date.
+  const dailyQuote = useMemo(
+    () => DAILY_QUOTES[dayOfYear(now) % DAILY_QUOTES.length],
+    // changes once per calendar day
+    [now.getFullYear(), now.getMonth(), now.getDate()]
+  );
+
   if (!startDate) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-8 px-4">
@@ -126,12 +135,6 @@ export default function Home() {
   const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-
-  const dailyQuote = useMemo(
-    () => DAILY_QUOTES[dayOfYear(now) % DAILY_QUOTES.length],
-    // changes once per calendar day
-    [now.getFullYear(), now.getMonth(), now.getDate()]
-  );
 
   // Fire emoji grows with streak length
   const fireSize = Math.min(48 + days * 1.4, 120);

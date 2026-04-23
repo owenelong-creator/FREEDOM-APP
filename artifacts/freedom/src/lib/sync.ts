@@ -14,8 +14,6 @@ type UserDoc = {
   journalEntries: unknown[];
   fortressItems: string[];
   appName: string;
-  myPosts: unknown[];
-  reactions: Record<string, Record<string, number>>;
   theme: "light" | "dark";
   updatedAt: number;
 };
@@ -48,8 +46,6 @@ export function useFirestoreSync(args: {
   journalEntries: unknown[];
   fortressItems: string[];
   appName: string;
-  myPosts: unknown[];
-  reactions: Record<string, Record<string, number>>;
   theme: "light" | "dark";
   onRemoteLoad: (data: Loaded) => void;
 }) {
@@ -171,8 +167,6 @@ export function useFirestoreSync(args: {
       journalEntries: args.journalEntries,
       fortressItems: args.fortressItems,
       appName: args.appName,
-      myPosts: args.myPosts,
-      reactions: args.reactions,
       theme: args.theme,
       updatedAt: Date.now(),
     };
@@ -187,8 +181,6 @@ export function useFirestoreSync(args: {
     args.journalEntries,
     args.fortressItems,
     args.appName,
-    args.myPosts,
-    args.reactions,
     args.theme,
   ]);
 }

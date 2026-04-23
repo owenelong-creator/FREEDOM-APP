@@ -48,8 +48,12 @@ function PostCard({ post }: { post: CommunityPost }) {
 
       <div className="flex flex-wrap gap-2 pt-1">
         {REACTION_EMOJIS.map((emoji) => {
-          const baseCount = post.reactions[emoji] || 0;
-          const myAdd = userReacted[emoji] ? 1 : 0;
+          const baseCount = Math.max(0, post.reactions[emoji] || 0);
+          // For server-backed posts, the snapshot count already includes my
+          // reaction (we use atomic increment), so don't add myAdd or it
+          // would double-count. For local-only fallback posts, add it.
+          const isLocal = post.id.startsWith("local-");
+          const myAdd = isLocal && userReacted[emoji] ? 1 : 0;
           const total = baseCount + myAdd;
           const liked = !!userReacted[emoji];
           return (

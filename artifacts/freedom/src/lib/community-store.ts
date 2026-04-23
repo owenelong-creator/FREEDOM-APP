@@ -10,13 +10,17 @@ import {
   doc,
   updateDoc,
   serverTimestamp,
+  increment,
   isFirebaseConfigured,
 } from "./firebase";
 import { useAuth } from "./auth-context";
 import type { CommunityPost } from "./context";
 
 const POSTS_COLLECTION = "posts";
-const LOCAL_KEY = "freedom_my_posts";
+// Cached snapshot of the global feed used when offline. Distinct from
+// `freedom_my_posts` (the legacy per-user posts list) to avoid collisions
+// where the cache would get uploaded as a user's "own posts".
+const LOCAL_KEY = "freedom_community_cache";
 
 function readLocal(): CommunityPost[] {
   try {
@@ -127,9 +131,9 @@ export function useToggleCommunityReaction() {
     if (!db || postId.startsWith("local-")) return; // local-only posts can't update server reactions
     try {
       const ref = doc(db, POSTS_COLLECTION, postId);
-      // Read current value through a simple +1/-1 update via Firestore field path
       const fieldPath = `reactions.${emoji}`;
-      await updateDoc(ref, { [fieldPath]: currentlyLiked ? 0 : 1 } as never);
+      // Atomic +1 / -1 so concurrent reactions from other users aren't clobbered.
+      await updateDoc(ref, { [fieldPath]: increment(currentlyLiked ? -1 : 1) });
     } catch (e) {
       console.warn("[freedom] reaction sync failed (kept locally)", e);
     }

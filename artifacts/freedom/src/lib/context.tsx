@@ -75,8 +75,6 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     journalEntries,
     fortressItems,
     appName,
-    myPosts,
-    reactions,
     theme,
     onRemoteLoad: (remote) => {
       setStartDate(remote.startDate);

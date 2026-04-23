@@ -12,14 +12,6 @@ function GoogleIcon() {
   );
 }
 
-function AppleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-      <path d="M16.36 12.7c0-2.4 2-3.55 2.05-3.6-1.13-1.65-2.88-1.88-3.5-1.9-1.49-.15-2.91.88-3.66.88-.77 0-1.93-.86-3.18-.84-1.63.02-3.14.95-3.99 2.42-1.7 2.95-.43 7.3 1.22 9.7.81 1.16 1.77 2.47 3.04 2.43 1.22-.05 1.68-.79 3.16-.79 1.46 0 1.88.79 3.18.76 1.32-.02 2.15-1.18 2.95-2.36.93-1.36 1.32-2.69 1.34-2.76-.03-.01-2.58-.99-2.61-3.94zM13.96 5.27c.66-.81 1.11-1.92.99-3.04-.96.04-2.13.65-2.82 1.45-.61.71-1.16 1.86-1.02 2.95 1.07.08 2.18-.55 2.85-1.36z" />
-    </svg>
-  );
-}
-
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -77,14 +69,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
             data-testid="button-signin-google"
           >
             <GoogleIcon /> Continue with Google
-          </Button>
-          <Button
-            disabled={busy}
-            onClick={() => wrap(auth.signInWithApple)}
-            className="w-full bg-foreground hover:bg-foreground/90 text-background h-12 justify-center gap-3 font-mono uppercase tracking-widest text-xs"
-            data-testid="button-signin-apple"
-          >
-            <AppleIcon /> Continue with Apple
           </Button>
           <Button
             variant="outline"

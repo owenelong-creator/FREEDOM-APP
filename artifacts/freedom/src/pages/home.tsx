@@ -1,10 +1,49 @@
-import { useState, useEffect } from "react";
-import { differenceInSeconds, differenceInDays } from "date-fns";
+import { useState, useEffect, useMemo } from "react";
+import { differenceInSeconds } from "date-fns";
 import { motion } from "framer-motion";
 import { useFreedom } from "@/lib/context";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+
+const DAILY_QUOTES = [
+  "The chains you break today free the future you tomorrow.",
+  "Discipline is choosing what you want most over what you want now.",
+  "You don't have to be ready. You just have to begin.",
+  "The cave you fear holds the treasure you seek.",
+  "Your story isn't over. This is the turning page.",
+  "Strength doesn't come from what you can do. It comes from overcoming what you thought you couldn't.",
+  "The urge will pass. The pride will not.",
+  "Quiet your mind. Watch the wave roll by.",
+  "Every clean day is a vote for who you're becoming.",
+  "You are not your worst moment. You are this one.",
+  "Pain is temporary. Quitting on yourself lasts forever.",
+  "Today is a new chance. Take it.",
+  "Your future self is already thanking you.",
+  "Small wins, stacked daily, become a different life.",
+  "The only person you have to be better than is who you were yesterday.",
+  "Protect your peace like it's the rarest thing you own.",
+  "Brave isn't the absence of fear. It's moving forward anyway.",
+  "Your habits are a vote for the person you want to be.",
+  "One urge surfed is one urge weaker.",
+  "Light always wins. Just give it a little more time.",
+  "Don't break the chain. Don't break yourself.",
+  "Healing isn't linear. Keep going anyway.",
+  "Progress, not perfection.",
+  "You've already done the hardest part: deciding.",
+  "Every craving is a chance to grow stronger.",
+  "Be patient with yourself. You're rebuilding.",
+  "The mountain is climbed one step at a time.",
+  "Freedom is not a destination. It's a daily practice.",
+  "Your only competition is who you were last week.",
+  "Stay soft. Stay strong. Stay free.",
+];
+
+function dayOfYear(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  return Math.floor(diff / 86400_000);
+}
 
 const MILESTONES = [
   { days: 1, title: "Decision made", desc: "The hardest step is behind you." },
@@ -88,6 +127,15 @@ export default function Home() {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
+  const dailyQuote = useMemo(
+    () => DAILY_QUOTES[dayOfYear(now) % DAILY_QUOTES.length],
+    // changes once per calendar day
+    [now.getFullYear(), now.getMonth(), now.getDate()]
+  );
+
+  // Fire emoji grows with streak length
+  const fireSize = Math.min(48 + days * 1.4, 120);
+
   const handleReset = () => {
     setStartDate(new Date().toISOString());
     setIsResetOpen(false);
@@ -129,6 +177,44 @@ export default function Home() {
             <span className="text-[10px] uppercase tracking-widest mt-1">SEC</span>
           </div>
         </div>
+
+        {/* Streak counter with growing fire */}
+        <motion.div
+          key={days}
+          initial={{ scale: 0.85, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 220, damping: 18 }}
+          className="flex items-center gap-3 pt-6"
+          data-testid="streak-counter"
+        >
+          <span style={{ fontSize: `${fireSize}px`, lineHeight: 1 }} aria-hidden="true">
+            🔥
+          </span>
+          <div className="flex flex-col items-start">
+            <span
+              className="font-bold tabular-nums leading-none"
+              style={{ color: "hsl(var(--stat))", fontSize: `${Math.min(28 + days * 0.4, 56)}px` }}
+            >
+              {days}
+            </span>
+            <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-muted-foreground mt-1">
+              {days === 1 ? "Day Sober" : "Days Sober"}
+            </span>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Daily motivational quote */}
+      <div className="bg-card border border-card-border rounded-2xl px-6 py-5 mx-1">
+        <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary mb-2">
+          Today's Reminder
+        </div>
+        <p
+          className="text-foreground font-serif text-lg leading-snug"
+          data-testid="daily-quote"
+        >
+          “{dailyQuote}”
+        </p>
       </div>
 
       <div className="space-y-6">

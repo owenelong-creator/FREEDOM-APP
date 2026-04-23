@@ -1,13 +1,28 @@
-import { useState } from "react";
-import { format } from "date-fns";
-import { Shield } from "lucide-react";
+import { useState, useMemo } from "react";
+import { format, startOfWeek, addWeeks, isSameWeek } from "date-fns";
+import { Shield, Sun, Moon } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useFreedom } from "@/lib/context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function Settings() {
-  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName } = useFreedom();
+  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme } = useFreedom();
+
+  // Group urges into the last 8 weeks
+  const weeklyUrges = useMemo(() => {
+    const buckets: { label: string; count: number }[] = [];
+    const thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    for (let i = 7; i >= 0; i--) {
+      const weekStart = addWeeks(thisWeekStart, -i);
+      const count = urgeSessions.filter((u) =>
+        isSameWeek(new Date(u.timestamp), weekStart, { weekStartsOn: 1 })
+      ).length;
+      buckets.push({ label: format(weekStart, "MMM d"), count });
+    }
+    return buckets;
+  }, [urgeSessions]);
 
   const [resetStep, setResetStep] = useState(1);
   const [resetConfirmText, setResetConfirmText] = useState("");
@@ -127,8 +142,97 @@ export default function Settings() {
 
         <div className="space-y-4">
           <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
+            Appearance
+          </h3>
+          <div className="bg-card border border-border p-4 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {theme === "dark" ? (
+                <Moon size={18} className="text-primary" />
+              ) : (
+                <Sun size={18} className="text-stat" />
+              )}
+              <div>
+                <div className="text-sm text-foreground font-medium">
+                  {theme === "dark" ? "Dark Mode" : "Light Mode"}
+                </div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Tap to switch theme
+                </div>
+              </div>
+            </div>
+            <button
+              role="switch"
+              aria-checked={theme === "dark"}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className={`relative w-14 h-7 rounded-full transition-colors ${
+                theme === "dark" ? "bg-primary" : "bg-muted-foreground/30"
+              }`}
+              data-testid="button-theme-toggle"
+            >
+              <span
+                className="absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-background shadow transition-transform"
+                style={{ transform: theme === "dark" ? "translateX(28px)" : "translateX(0)" }}
+              />
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
             Statistics
           </h3>
+
+          <div className="bg-card border border-border p-4 rounded-lg space-y-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+                Urges Per Week
+              </span>
+              <span className="text-[10px] font-mono text-muted-foreground/60">
+                Last 8 weeks
+              </span>
+            </div>
+            <div className="h-40 w-full" data-testid="chart-urges-weekly">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={weeklyUrges} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    stroke="hsl(var(--muted-foreground))"
+                    tick={{ fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    stroke="hsl(var(--muted-foreground))"
+                    tick={{ fontSize: 10 }}
+                    allowDecimals={false}
+                    axisLine={false}
+                    tickLine={false}
+                    width={28}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: "hsl(var(--foreground))" }}
+                    itemStyle={{ color: "hsl(var(--primary))" }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="count"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2.5}
+                    dot={{ r: 3, fill: "hsl(var(--primary))" }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-card border border-border p-4 rounded-lg flex flex-col">
               <span className="text-2xl font-mono text-foreground mb-1">{urgeSessions.length}</span>

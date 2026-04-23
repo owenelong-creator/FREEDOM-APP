@@ -40,6 +40,8 @@ export type FreedomContextType = {
   addMyPost: (post: CommunityPost) => void;
   reactions: Record<string, Record<string, number>>;
   toggleReaction: (postId: string, emoji: string) => void;
+  theme: "light" | "dark";
+  setTheme: (t: "light" | "dark") => void;
   resetAll: () => void;
 };
 
@@ -54,6 +56,15 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
   const [appName, setAppNameState] = useState<string>(() => localStorage.getItem("freedom_app_name") || "Freedom");
   const [myPosts, setMyPosts] = useState<CommunityPost[]>(() => JSON.parse(localStorage.getItem("freedom_my_posts") || "[]"));
   const [reactions, setReactions] = useState<Record<string, Record<string, number>>>(() => JSON.parse(localStorage.getItem("freedom_reactions") || "{}"));
+  const [theme, setThemeState] = useState<"light" | "dark">(() => (localStorage.getItem("freedom_theme") as "light" | "dark") || "dark");
+
+  useEffect(() => {
+    localStorage.setItem("freedom_theme", theme);
+    if (theme === "dark") document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [theme]);
+
+  const setTheme = useCallback((t: "light" | "dark") => setThemeState(t), []);
 
   useEffect(() => {
     if (startDate) localStorage.setItem("freedom_start", startDate);
@@ -180,6 +191,8 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
         addMyPost,
         reactions,
         toggleReaction,
+        theme,
+        setTheme,
         resetAll,
       }}
     >

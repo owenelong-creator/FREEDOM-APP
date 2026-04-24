@@ -45,6 +45,7 @@ type SuspendChoice = { label: string; days: number | "custom" };
 const SUSPEND_PRESETS: SuspendChoice[] = [
   { label: "1 day", days: 1 },
   { label: "7 days", days: 7 },
+  { label: "14 days", days: 14 },
   { label: "30 days", days: 30 },
   { label: "Custom…", days: "custom" },
 ];

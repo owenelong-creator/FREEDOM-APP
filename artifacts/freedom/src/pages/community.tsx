@@ -7,13 +7,11 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
-  Flag,
   MessageCircle,
   Send,
 } from "lucide-react";
 import { useFreedom } from "@/lib/context";
 import { useAuth } from "@/lib/auth-context";
-import { useMyBan } from "@/lib/admin";
 import {
   useCommunityFeed,
   useAddCommunityPost,
@@ -24,7 +22,6 @@ import {
   useAddComment,
   useUpdateComment,
   useDeleteComment,
-  useReportContent,
   type CommunityComment,
 } from "@/lib/community-store";
 import type { CommunityPost } from "@/lib/context";
@@ -33,7 +30,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -42,37 +38,24 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ImageUpload from "@/components/image-upload";
 
 const REACTION_EMOJIS = ["❤️", "🔥", "💪", "🙌", "🌱"];
 
-type ReportTarget =
-  | { kind: "post"; postId: string; snapshot: string; authorUid?: string; authorUsername?: string }
-  | {
-      kind: "comment";
-      postId: string;
-      commentId: string;
-      snapshot: string;
-      authorUid?: string;
-      authorUsername?: string;
-    };
-
 function ItemMenu({
   isOwner,
   onEdit,
   onDelete,
-  onReport,
   testIdPrefix,
 }: {
   isOwner: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
-  onReport: () => void;
   testIdPrefix: string;
 }) {
+  if (!isOwner) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -85,7 +68,7 @@ function ItemMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40 bg-card border-border">
-        {isOwner && onEdit && (
+        {onEdit && (
           <DropdownMenuItem
             onClick={onEdit}
             className="text-xs font-mono uppercase tracking-widest cursor-pointer"
@@ -94,7 +77,7 @@ function ItemMenu({
             <Pencil size={12} className="mr-2" /> Edit
           </DropdownMenuItem>
         )}
-        {isOwner && onDelete && (
+        {onDelete && (
           <DropdownMenuItem
             onClick={onDelete}
             className="text-xs font-mono uppercase tracking-widest text-destructive focus:text-destructive cursor-pointer"
@@ -103,14 +86,6 @@ function ItemMenu({
             <Trash2 size={12} className="mr-2" /> Delete
           </DropdownMenuItem>
         )}
-        {isOwner && <DropdownMenuSeparator />}
-        <DropdownMenuItem
-          onClick={onReport}
-          className="text-xs font-mono uppercase tracking-widest cursor-pointer"
-          data-testid={`${testIdPrefix}-menu-report`}
-        >
-          <Flag size={12} className="mr-2" /> Report
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -120,12 +95,10 @@ function CommentRow({
   comment,
   postId,
   myUid,
-  onReport,
 }: {
   comment: CommunityComment;
   postId: string;
   myUid?: string;
-  onReport: (target: ReportTarget) => void;
 }) {
   const updateComment = useUpdateComment();
   const deleteComment = useDeleteComment();
@@ -174,16 +147,6 @@ function CommentRow({
             isOwner={isOwner}
             onEdit={isOwner ? () => { setDraft(comment.message); setEditImage(comment.imageUrl || null); setEditing(true); } : undefined}
             onDelete={isOwner ? handleDelete : undefined}
-            onReport={() =>
-              onReport({
-                kind: "comment",
-                postId,
-                commentId: comment.id,
-                snapshot: comment.message,
-                authorUid: comment.uid,
-                authorUsername: comment.username,
-              })
-            }
             testIdPrefix={`comment-${comment.id}`}
           />
         </div>
@@ -238,14 +201,10 @@ function CommentThread({
   postId,
   myUid,
   myUsername,
-  banned,
-  onReport,
 }: {
   postId: string;
   myUid?: string;
   myUsername: string;
-  banned: boolean;
-  onReport: (target: ReportTarget) => void;
 }) {
   const comments = usePostComments(postId, true);
   const addComment = useAddComment();
@@ -280,10 +239,10 @@ function CommentThread({
       )}
       <div className="divide-y divide-border/40">
         {comments.map((c) => (
-          <CommentRow key={c.id} comment={c} postId={postId} myUid={myUid} onReport={onReport} />
+          <CommentRow key={c.id} comment={c} postId={postId} myUid={myUid} />
         ))}
       </div>
-      {myUid && !banned ? (
+      {myUid ? (
         <div className="space-y-2 pt-2">
           <div className="flex items-end gap-2">
             <Textarea
@@ -308,7 +267,7 @@ function CommentThread({
         </div>
       ) : (
         <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 pt-2">
-          {banned ? "You can't reply while restricted." : "Sign in to reply."}
+          Sign in to reply.
         </p>
       )}
       {error && <p className="text-xs font-mono text-destructive">{error}</p>}
@@ -320,14 +279,10 @@ function PostCard({
   post,
   myUid,
   myUsername,
-  banned,
-  onReport,
 }: {
   post: CommunityPost;
   myUid?: string;
   myUsername: string;
-  banned: boolean;
-  onReport: (target: ReportTarget) => void;
 }) {
   const { reactions: userReactions, toggleReaction } = useFreedom();
   const toggleRemote = useToggleCommunityReaction();
@@ -396,15 +351,6 @@ function PostCard({
             isOwner={isOwner}
             onEdit={isOwner ? () => { setDraft(post.message); setEditImage(post.imageUrl || null); setEditing(true); } : undefined}
             onDelete={isOwner ? handleDelete : undefined}
-            onReport={() =>
-              onReport({
-                kind: "post",
-                postId: post.id,
-                snapshot: post.message,
-                authorUid: post.uid,
-                authorUsername: post.username,
-              })
-            }
             testIdPrefix={`post-${post.id}`}
           />
         </div>
@@ -489,13 +435,7 @@ function PostCard({
       </div>
 
       {commentsOpen && !post.id.startsWith("local-") && (
-        <CommentThread
-          postId={post.id}
-          myUid={myUid}
-          myUsername={myUsername}
-          banned={banned}
-          onReport={onReport}
-        />
+        <CommentThread postId={post.id} myUid={myUid} myUsername={myUsername} />
       )}
     </div>
   );
@@ -504,22 +444,14 @@ function PostCard({
 export default function Community() {
   const { appName, startDate } = useFreedom();
   const { user, configured } = useAuth();
-  const myBan = useMyBan();
   const { posts, online } = useCommunityFeed(100);
   const addPost = useAddCommunityPost();
-  const reportContent = useReportContent();
 
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [messageDraft, setMessageDraft] = useState("");
   const [composerImage, setComposerImage] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
-
-  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
-  const [reportReason, setReportReason] = useState("");
-  const [reportSubmitting, setReportSubmitting] = useState(false);
-  const [reportError, setReportError] = useState<string | null>(null);
-  const [reportSuccess, setReportSuccess] = useState(false);
 
   const myUsername = useMemo(
     () => appName.toLowerCase().replace(/[^a-z0-9_]/g, "") || "you",
@@ -535,20 +467,7 @@ export default function Community() {
     return `Day ${days}`;
   }, [startDate]);
 
-  const formatBanMessage = (): string => {
-    if (!myBan.active) return "";
-    if (myBan.kind === "permanent" || !myBan.expiresAt) {
-      return `Your account is permanently banned${myBan.reason ? `: ${myBan.reason}` : "."}`;
-    }
-    const days = Math.ceil(myBan.remainingMs / (24 * 60 * 60 * 1000));
-    return `You're suspended for ${days} more day${days === 1 ? "" : "s"}${myBan.reason ? ` (${myBan.reason})` : ""}.`;
-  };
-
   const handlePost = async () => {
-    if (myBan.active) {
-      setPostError(formatBanMessage());
-      return;
-    }
     const text = messageDraft.trim();
     const username = myUsername;
     if (!text && !composerImage) return;
@@ -564,37 +483,6 @@ export default function Community() {
       setPostError(err.message || "Could not post. Try again.");
     } finally {
       setPosting(false);
-    }
-  };
-
-  const closeReport = () => {
-    setReportTarget(null);
-    setReportReason("");
-    setReportError(null);
-    setReportSuccess(false);
-  };
-
-  const submitReport = async () => {
-    if (!reportTarget) return;
-    setReportSubmitting(true);
-    setReportError(null);
-    try {
-      await reportContent({
-        kind: reportTarget.kind,
-        postId: reportTarget.postId,
-        commentId: reportTarget.kind === "comment" ? reportTarget.commentId : undefined,
-        reason: reportReason.trim(),
-        contentSnapshot: reportTarget.snapshot,
-        authorUid: reportTarget.authorUid,
-        authorUsername: reportTarget.authorUsername,
-      });
-      setReportSuccess(true);
-      setTimeout(closeReport, 1200);
-    } catch (e: unknown) {
-      const err = e as { message?: string };
-      setReportError(err.message || "Could not send report.");
-    } finally {
-      setReportSubmitting(false);
     }
   };
 
@@ -635,34 +523,15 @@ export default function Community() {
               post={post}
               myUid={user?.uid}
               myUsername={myUsername}
-              banned={myBan.active}
-              onReport={(t) => {
-                setReportTarget(t);
-                setReportReason("");
-                setReportError(null);
-                setReportSuccess(false);
-              }}
             />
           ))}
-        </div>
-      )}
-
-      {myBan.active && (
-        <div
-          className="bg-destructive/10 border border-destructive/40 rounded-lg p-3 text-sm text-destructive"
-          data-testid="ban-banner"
-        >
-          <div className="font-mono text-[10px] uppercase tracking-widest mb-1">
-            {myBan.kind === "permanent" ? "Account banned" : "Account suspended"}
-          </div>
-          {formatBanMessage()}
         </div>
       )}
 
       {!isComposerOpen && (
         <button
           onClick={() => setIsComposerOpen(true)}
-          disabled={(configured && !user) || myBan.active}
+          disabled={configured && !user}
           style={{
             bottom: "calc(140px + env(safe-area-inset-bottom))",
             right: "16px",
@@ -739,55 +608,6 @@ export default function Community() {
               {posting ? "Posting…" : "Post"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!reportTarget} onOpenChange={(v) => (!v ? closeReport() : null)}>
-        <DialogContent className="bg-card border-border sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-foreground font-serif text-xl">
-              Report {reportTarget?.kind}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs">
-              Tell us what's wrong. Reports are sent privately for review.
-            </DialogDescription>
-          </DialogHeader>
-
-          {reportSuccess ? (
-            <div className="py-6 text-center text-sm text-primary font-mono">
-              Thanks — report received.
-            </div>
-          ) : (
-            <div className="space-y-3 pt-2">
-              <Textarea
-                value={reportReason}
-                onChange={(e) => setReportReason(e.target.value)}
-                maxLength={500}
-                placeholder="Optional: describe the issue (spam, abuse, etc.)"
-                className="bg-background border-border text-foreground resize-none h-24 text-sm"
-                data-testid="input-report-reason"
-              />
-              {reportError && (
-                <p className="text-xs font-mono text-destructive">{reportError}</p>
-              )}
-            </div>
-          )}
-
-          {!reportSuccess && (
-            <DialogFooter className="flex-row justify-between sm:justify-between pt-2">
-              <Button variant="ghost" onClick={closeReport}>
-                Cancel
-              </Button>
-              <Button
-                onClick={submitReport}
-                disabled={reportSubmitting}
-                className="font-mono uppercase tracking-widest text-xs"
-                data-testid="button-submit-report"
-              >
-                {reportSubmitting ? "Sending…" : "Send report"}
-              </Button>
-            </DialogFooter>
-          )}
         </DialogContent>
       </Dialog>
     </div>

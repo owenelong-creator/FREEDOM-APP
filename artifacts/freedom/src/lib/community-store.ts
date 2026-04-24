@@ -18,7 +18,6 @@ import { useAuth } from "./auth-context";
 import type { CommunityPost } from "./context";
 
 const POSTS_COLLECTION = "posts";
-const REPORTS_COLLECTION = "reports";
 const LOCAL_KEY = "freedom_community_cache";
 
 export type CommunityComment = {
@@ -273,36 +272,3 @@ export function useDeleteComment() {
   }, []);
 }
 
-/**
- * File a report on a post or comment. Reports go into a top-level `reports`
- * collection so the app owner can review them in the Firebase console.
- */
-export function useReportContent() {
-  const { user } = useAuth();
-  return useCallback(
-    async (input: {
-      kind: "post" | "comment";
-      postId: string;
-      commentId?: string;
-      reason?: string;
-      contentSnapshot: string;
-      authorUid?: string;
-      authorUsername?: string;
-    }) => {
-      if (!db) throw new Error("Reporting is offline right now.");
-      await addDoc(collection(db, REPORTS_COLLECTION), {
-        kind: input.kind,
-        postId: input.postId,
-        commentId: input.commentId || null,
-        reason: input.reason || "",
-        contentSnapshot: input.contentSnapshot.slice(0, 500),
-        authorUid: input.authorUid || null,
-        authorUsername: input.authorUsername || null,
-        reporterUid: user?.uid || null,
-        status: "open",
-        createdAt: serverTimestamp(),
-      });
-    },
-    [user]
-  );
-}

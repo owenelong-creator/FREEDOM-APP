@@ -12,7 +12,6 @@ import Journal from "@/pages/journal";
 import Community from "@/pages/community";
 import Fortress from "@/pages/fortress";
 import Settings from "@/pages/settings";
-import AdminReports from "@/pages/admin-reports";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -26,7 +25,6 @@ function Router() {
         <Route path="/community" component={Community} />
         <Route path="/fortress" component={Fortress} />
         <Route path="/settings" component={Settings} />
-        <Route path="/admin/reports" component={AdminReports} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

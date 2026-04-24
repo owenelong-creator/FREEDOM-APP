@@ -1,42 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.email == 'owenelong@gmail.com';
-    }
-
-    function isOwner() {
-      return isSignedIn() && request.auth.uid == resource.data.uid;
-    }
-
-    function isReactionOnly() {
-      return request.resource.data.diff(resource.data)
-              .affectedKeys().hasOnly(['reactions']);
-    }
-
-    match /profiles/{uid} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == uid;
-      allow delete: if isAdmin();
-    }
-
-    match /communityPosts/{postId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-      allow update: if isAdmin() || isOwner() || (isSignedIn() && isReactionOnly());
-      allow delete: if isAdmin() || isOwner();
-
-      match /comments/{commentId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-        allow update: if isAdmin() || isOwner() || (isSignedIn() && isReactionOnly());
-        allow delete: if isAdmin() || isOwner();
-      }
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }

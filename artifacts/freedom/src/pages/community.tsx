@@ -9,6 +9,7 @@ import {
   Trash2,
   MessageCircle,
   Send,
+  Flag,
 } from "lucide-react";
 import { useFreedom } from "@/lib/context";
 import { useAuth } from "@/lib/auth-context";
@@ -22,7 +23,10 @@ import {
   useAddComment,
   useUpdateComment,
   useDeleteComment,
+  useSubmitReport,
   type CommunityComment,
+  type ReportInput,
+  type ReportTargetType,
 } from "@/lib/community-store";
 import type { CommunityPost } from "@/lib/context";
 import { Button } from "@/components/ui/button";
@@ -48,14 +52,18 @@ function ItemMenu({
   isOwner,
   onEdit,
   onDelete,
+  onReport,
   testIdPrefix,
 }: {
   isOwner: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
+  onReport?: () => void;
   testIdPrefix: string;
 }) {
-  if (!isOwner) return null;
+  const showOwnerActions = isOwner && (onEdit || onDelete);
+  const showReport = !isOwner && !!onReport;
+  if (!showOwnerActions && !showReport) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -68,7 +76,7 @@ function ItemMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40 bg-card border-border">
-        {onEdit && (
+        {isOwner && onEdit && (
           <DropdownMenuItem
             onClick={onEdit}
             className="text-xs font-mono uppercase tracking-widest cursor-pointer"
@@ -77,7 +85,7 @@ function ItemMenu({
             <Pencil size={12} className="mr-2" /> Edit
           </DropdownMenuItem>
         )}
-        {onDelete && (
+        {isOwner && onDelete && (
           <DropdownMenuItem
             onClick={onDelete}
             className="text-xs font-mono uppercase tracking-widest text-destructive focus:text-destructive cursor-pointer"
@@ -86,8 +94,184 @@ function ItemMenu({
             <Trash2 size={12} className="mr-2" /> Delete
           </DropdownMenuItem>
         )}
+        {!isOwner && onReport && (
+          <DropdownMenuItem
+            onClick={onReport}
+            className="text-xs font-mono uppercase tracking-widest text-destructive focus:text-destructive cursor-pointer"
+            data-testid={`${testIdPrefix}-menu-report`}
+          >
+            <Flag size={12} className="mr-2" /> Report
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+const REPORT_REASONS = [
+  "Spam or scam",
+  "Harassment or hate",
+  "Self-harm or unsafe content",
+  "Sexual or explicit content",
+  "Misinformation",
+  "Other",
+];
+
+type ReportTarget = {
+  targetType: ReportTargetType;
+  targetId: string;
+  postId: string;
+  targetUid?: string | null;
+  targetUsername?: string | null;
+  targetMessage?: string | null;
+};
+
+function ReportDialog({
+  target,
+  onClose,
+}: {
+  target: ReportTarget | null;
+  onClose: () => void;
+}) {
+  const submitReport = useSubmitReport();
+  const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
+  const [details, setDetails] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const reset = () => {
+    setReason(REPORT_REASONS[0]);
+    setDetails("");
+    setSubmitting(false);
+    setError(null);
+    setDone(false);
+  };
+
+  const handleClose = () => {
+    onClose();
+    setTimeout(reset, 200);
+  };
+
+  const handleSubmit = async () => {
+    if (!target) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const composedReason = details.trim()
+        ? `${reason} — ${details.trim()}`
+        : reason;
+      const input: ReportInput = {
+        targetType: target.targetType,
+        targetId: target.targetId,
+        postId: target.postId,
+        targetUid: target.targetUid,
+        targetUsername: target.targetUsername,
+        targetMessage: target.targetMessage,
+        reason: composedReason,
+      };
+      await submitReport(input);
+      setDone(true);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      setError(err.message || "Could not submit report.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!target} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="bg-card border-border sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-foreground font-serif text-xl">
+            {done ? "Report sent" : `Report ${target?.targetType ?? ""}`}
+          </DialogTitle>
+        </DialogHeader>
+
+        {done ? (
+          <div className="space-y-4 pt-1">
+            <p className="text-sm text-muted-foreground">
+              Thanks for letting us know. Our team will take a look.
+            </p>
+            <DialogFooter>
+              <Button
+                onClick={handleClose}
+                className="font-mono uppercase tracking-widest text-xs"
+                data-testid="button-report-done"
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="space-y-4 pt-1">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Reason
+              </label>
+              <div className="space-y-1.5">
+                {REPORT_REASONS.map((r) => (
+                  <label
+                    key={r}
+                    className="flex items-center gap-2 text-sm text-foreground cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="report-reason"
+                      value={r}
+                      checked={reason === r}
+                      onChange={() => setReason(r)}
+                      className="accent-primary"
+                      data-testid={`report-reason-${r.replace(/\s+/g, "-").toLowerCase()}`}
+                    />
+                    <span>{r}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Details (optional)
+              </label>
+              <Textarea
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                maxLength={500}
+                placeholder="Anything else we should know?"
+                className="bg-background border-border text-foreground resize-none h-20"
+                data-testid="input-report-details"
+              />
+              <p className="text-[10px] font-mono text-muted-foreground/60 text-right">
+                {details.length}/500
+              </p>
+            </div>
+
+            {error && (
+              <p className="text-xs font-mono text-destructive" data-testid="text-report-error">
+                {error}
+              </p>
+            )}
+
+            <DialogFooter className="flex-row justify-between sm:justify-between pt-1">
+              <Button variant="ghost" onClick={handleClose} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="font-mono uppercase tracking-widest text-xs"
+                data-testid="button-submit-report"
+              >
+                {submitting ? "Sending…" : "Send report"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -95,10 +279,12 @@ function CommentRow({
   comment,
   postId,
   myUid,
+  onReport,
 }: {
   comment: CommunityComment;
   postId: string;
   myUid?: string;
+  onReport: (target: ReportTarget) => void;
 }) {
   const updateComment = useUpdateComment();
   const deleteComment = useDeleteComment();
@@ -107,6 +293,7 @@ function CommentRow({
   const [editImage, setEditImage] = useState<string | null>(comment.imageUrl || null);
   const [editError, setEditError] = useState<string | null>(null);
   const isOwner = !!myUid && comment.uid === myUid;
+  const canReport = !!myUid && !isOwner && !postId.startsWith("local-");
 
   const handleSave = async () => {
     const next = draft.trim();
@@ -147,6 +334,19 @@ function CommentRow({
             isOwner={isOwner}
             onEdit={isOwner ? () => { setDraft(comment.message); setEditImage(comment.imageUrl || null); setEditing(true); } : undefined}
             onDelete={isOwner ? handleDelete : undefined}
+            onReport={
+              canReport
+                ? () =>
+                    onReport({
+                      targetType: "comment",
+                      targetId: comment.id,
+                      postId,
+                      targetUid: comment.uid,
+                      targetUsername: comment.username,
+                      targetMessage: comment.message,
+                    })
+                : undefined
+            }
             testIdPrefix={`comment-${comment.id}`}
           />
         </div>
@@ -201,10 +401,12 @@ function CommentThread({
   postId,
   myUid,
   myUsername,
+  onReport,
 }: {
   postId: string;
   myUid?: string;
   myUsername: string;
+  onReport: (target: ReportTarget) => void;
 }) {
   const comments = usePostComments(postId, true);
   const addComment = useAddComment();
@@ -239,7 +441,13 @@ function CommentThread({
       )}
       <div className="divide-y divide-border/40">
         {comments.map((c) => (
-          <CommentRow key={c.id} comment={c} postId={postId} myUid={myUid} />
+          <CommentRow
+            key={c.id}
+            comment={c}
+            postId={postId}
+            myUid={myUid}
+            onReport={onReport}
+          />
         ))}
       </div>
       {myUid ? (
@@ -279,10 +487,12 @@ function PostCard({
   post,
   myUid,
   myUsername,
+  onReport,
 }: {
   post: CommunityPost;
   myUid?: string;
   myUsername: string;
+  onReport: (target: ReportTarget) => void;
 }) {
   const { reactions: userReactions, toggleReaction } = useFreedom();
   const toggleRemote = useToggleCommunityReaction();
@@ -296,6 +506,7 @@ function PostCard({
   const [commentsOpen, setCommentsOpen] = useState(false);
 
   const isOwner = !!myUid && post.uid === myUid;
+  const canReport = !!myUid && !isOwner && !post.id.startsWith("local-");
 
   const handleClick = (emoji: string) => {
     const wasLiked = !!userReacted[emoji];
@@ -351,6 +562,19 @@ function PostCard({
             isOwner={isOwner}
             onEdit={isOwner ? () => { setDraft(post.message); setEditImage(post.imageUrl || null); setEditing(true); } : undefined}
             onDelete={isOwner ? handleDelete : undefined}
+            onReport={
+              canReport
+                ? () =>
+                    onReport({
+                      targetType: "post",
+                      targetId: post.id,
+                      postId: post.id,
+                      targetUid: post.uid,
+                      targetUsername: post.username,
+                      targetMessage: post.message,
+                    })
+                : undefined
+            }
             testIdPrefix={`post-${post.id}`}
           />
         </div>
@@ -435,7 +659,12 @@ function PostCard({
       </div>
 
       {commentsOpen && !post.id.startsWith("local-") && (
-        <CommentThread postId={post.id} myUid={myUid} myUsername={myUsername} />
+        <CommentThread
+          postId={post.id}
+          myUid={myUid}
+          myUsername={myUsername}
+          onReport={onReport}
+        />
       )}
     </div>
   );
@@ -452,6 +681,7 @@ export default function Community() {
   const [composerImage, setComposerImage] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
 
   const myUsername = useMemo(
     () => appName.toLowerCase().replace(/[^a-z0-9_]/g, "") || "you",
@@ -523,6 +753,7 @@ export default function Community() {
               post={post}
               myUid={user?.uid}
               myUsername={myUsername}
+              onReport={setReportTarget}
             />
           ))}
         </div>
@@ -610,6 +841,8 @@ export default function Community() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />
     </div>
   );
 }

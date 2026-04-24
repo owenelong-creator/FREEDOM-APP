@@ -18,7 +18,20 @@ import { useAuth } from "./auth-context";
 import type { CommunityPost } from "./context";
 
 const POSTS_COLLECTION = "posts";
+const REPORTS_COLLECTION = "reports";
 const LOCAL_KEY = "freedom_community_cache";
+
+export type ReportTargetType = "post" | "comment";
+
+export type ReportInput = {
+  targetType: ReportTargetType;
+  targetId: string;
+  postId: string;
+  targetUid?: string | null;
+  targetUsername?: string | null;
+  targetMessage?: string | null;
+  reason?: string;
+};
 
 export type CommunityComment = {
   id: string;
@@ -270,5 +283,41 @@ export function useDeleteComment() {
     if (!db || postId.startsWith("local-")) return;
     await deleteDoc(doc(db, POSTS_COLLECTION, postId, "comments", commentId));
   }, []);
+}
+
+/**
+ * Submit a report against a post or comment. Reports are written to the
+ * top-level `reports` collection in Firestore for later moderator review.
+ */
+export function useSubmitReport() {
+  const { user } = useAuth();
+  return useCallback(
+    async (input: ReportInput) => {
+      if (!db) {
+        throw new Error("Reporting is unavailable offline.");
+      }
+      if (!user) {
+        throw new Error("Sign in to report content.");
+      }
+      if (input.postId.startsWith("local-")) {
+        throw new Error("Local-only posts can't be reported.");
+      }
+      const reason = (input.reason || "").trim().slice(0, 500);
+      await addDoc(collection(db, REPORTS_COLLECTION), {
+        targetType: input.targetType,
+        targetId: input.targetId,
+        postId: input.postId,
+        targetUid: input.targetUid || null,
+        targetUsername: input.targetUsername || null,
+        targetMessage: input.targetMessage || null,
+        reason: reason || null,
+        reporterUid: user.uid,
+        reporterEmail: user.email || null,
+        status: "open",
+        createdAt: serverTimestamp(),
+      });
+    },
+    [user]
+  );
 }
 

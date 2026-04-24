@@ -3,7 +3,6 @@ import {
   db,
   collection,
   query,
-  where,
   orderBy,
   onSnapshot,
   doc,
@@ -33,27 +32,30 @@ export function useUnseenWarnings() {
       setItems([]);
       return;
     }
+    // Single-field query (orderBy only) — filter `seen == false` on the
+    // client to avoid requiring a composite Firestore index.
     const q = query(
       collection(db, "users", user.uid, "notifications"),
-      where("seen", "==", false),
       orderBy("createdAt", "asc")
     );
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const list: WarningNotification[] = snap.docs.map((d) => {
-          const data = d.data() as Record<string, unknown>;
-          const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
-          return {
-            id: d.id,
-            kind: (data.kind as WarningKind) || "warning",
-            message: (data.message as string) || "",
-            targetMessage: (data.targetMessage as string) || null,
-            createdAt: createdAt?.toMillis
-              ? new Date(createdAt.toMillis()).toISOString()
-              : new Date().toISOString(),
-          };
-        });
+        const list: WarningNotification[] = snap.docs
+          .filter((d) => (d.data() as { seen?: boolean }).seen !== true)
+          .map((d) => {
+            const data = d.data() as Record<string, unknown>;
+            const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
+            return {
+              id: d.id,
+              kind: (data.kind as WarningKind) || "warning",
+              message: (data.message as string) || "",
+              targetMessage: (data.targetMessage as string) || null,
+              createdAt: createdAt?.toMillis
+                ? new Date(createdAt.toMillis()).toISOString()
+                : new Date().toISOString(),
+            };
+          });
         setItems(list);
       },
       (err) => {

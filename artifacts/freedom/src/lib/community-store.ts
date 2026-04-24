@@ -3,7 +3,6 @@ import {
   db,
   collection,
   query,
-  where,
   orderBy,
   limit,
   onSnapshot,
@@ -346,20 +345,17 @@ export function useAdminReports(statusFilter: ReportStatus | "all" = "open") {
       return;
     }
     setLoading(true);
-    const baseCol = collection(db, REPORTS_COLLECTION);
-    const q =
-      statusFilter === "all"
-        ? query(baseCol, orderBy("createdAt", "desc"), limit(200))
-        : query(
-            baseCol,
-            where("status", "==", statusFilter),
-            orderBy("createdAt", "desc"),
-            limit(200)
-          );
+    // Single-field query (orderBy only) to avoid requiring a composite
+    // Firestore index. We filter by status client-side below.
+    const q = query(
+      collection(db, REPORTS_COLLECTION),
+      orderBy("createdAt", "desc"),
+      limit(200)
+    );
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const list: ReportRecord[] = snap.docs.map((d) => {
+        const all: ReportRecord[] = snap.docs.map((d) => {
           const data = d.data() as Record<string, unknown>;
           const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
           const resolvedAt = data.resolvedAt as { toMillis?: () => number } | undefined;
@@ -384,6 +380,10 @@ export function useAdminReports(statusFilter: ReportStatus | "all" = "open") {
             resolvedBy: (data.resolvedBy as string) || null,
           };
         });
+        const list =
+          statusFilter === "all"
+            ? all
+            : all.filter((r) => r.status === statusFilter);
         setReports(list);
         setLoading(false);
         setError(null);

@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
 import { format, startOfWeek, addWeeks, isSameWeek } from "date-fns";
-import { Shield, Sun, Moon, LogOut, UserCircle } from "lucide-react";
+import { Shield, Sun, Moon, LogOut, UserCircle, ShieldAlert } from "lucide-react";
+import { Link } from "wouter";
 import { useAuth } from "@/lib/auth-context";
+import { useIsAdmin } from "@/lib/admin";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useFreedom } from "@/lib/context";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 export default function Settings() {
   const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme, usernameCooldownRemainingMs } = useFreedom();
   const { user, signOut, configured } = useAuth();
+  const isAdmin = useIsAdmin();
 
   // Group urges into the last 8 weeks
   const weeklyUrges = useMemo(() => {
@@ -79,6 +82,30 @@ export default function Settings() {
       </div>
 
       <div className="space-y-6">
+        {isAdmin && (
+          <div className="space-y-4">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
+              Admin
+            </h3>
+            <Link
+              href="/admin/reports"
+              className="bg-card border border-border p-4 rounded-lg flex items-center justify-between hover:border-primary/40 transition-colors"
+              data-testid="link-admin-reports"
+            >
+              <div className="flex items-center gap-3">
+                <ShieldAlert size={22} className="text-primary" />
+                <div>
+                  <div className="text-sm text-foreground font-medium">Reports queue</div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Triage flagged posts and comments
+                  </div>
+                </div>
+              </div>
+              <span className="text-muted-foreground">→</span>
+            </Link>
+          </div>
+        )}
+
         {configured && (
           <div className="space-y-4">
             <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">

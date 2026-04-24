@@ -26,6 +26,7 @@ export type CommunityComment = {
   uid: string;
   username: string;
   message: string;
+  imageUrl?: string | null;
   timestamp: string;
   editedAt?: string | null;
 };
@@ -70,11 +71,13 @@ export function useCommunityFeed(maxPosts = 100) {
             editedAt?: { toMillis?: () => number };
             reactions?: Record<string, number>;
           };
+          const dataWithImage = data as typeof data & { imageUrl?: string };
           return {
             id: d.id,
             uid: data.uid,
             username: data.username || "anon",
             message: data.message || "",
+            imageUrl: dataWithImage.imageUrl || null,
             streak: data.streak || "Day 1",
             timestamp: data.createdAt?.toMillis
               ? new Date(data.createdAt.toMillis()).toISOString()
@@ -105,12 +108,13 @@ export function useAddCommunityPost() {
   const { user } = useAuth();
 
   return useCallback(
-    async (post: { username: string; message: string; streak: string }) => {
+    async (post: { username: string; message: string; streak: string; imageUrl?: string | null }) => {
       if (db && user) {
         await addDoc(collection(db, POSTS_COLLECTION), {
           uid: user.uid,
           username: post.username,
           message: post.message,
+          imageUrl: post.imageUrl || null,
           streak: post.streak,
           reactions: {},
           createdAt: serverTimestamp(),
@@ -122,6 +126,7 @@ export function useAddCommunityPost() {
         id: `local-${Date.now()}`,
         username: post.username,
         message: post.message,
+        imageUrl: post.imageUrl || null,
         streak: post.streak,
         timestamp: new Date().toISOString(),
         reactions: {},
@@ -134,11 +139,17 @@ export function useAddCommunityPost() {
 }
 
 export function useUpdateCommunityPost() {
-  return useCallback(async (postId: string, message: string) => {
-    if (!db || postId.startsWith("local-")) return;
-    const ref = doc(db, POSTS_COLLECTION, postId);
-    await updateDoc(ref, { message, editedAt: serverTimestamp() });
-  }, []);
+  return useCallback(
+    async (postId: string, patch: { message?: string; imageUrl?: string | null }) => {
+      if (!db || postId.startsWith("local-")) return;
+      const ref = doc(db, POSTS_COLLECTION, postId);
+      const update: Record<string, unknown> = { editedAt: serverTimestamp() };
+      if (patch.message !== undefined) update.message = patch.message;
+      if (patch.imageUrl !== undefined) update.imageUrl = patch.imageUrl;
+      await updateDoc(ref, update);
+    },
+    []
+  );
 }
 
 export function useDeleteCommunityPost() {
@@ -189,11 +200,13 @@ export function usePostComments(postId: string, enabled = true) {
             createdAt?: { toMillis?: () => number };
             editedAt?: { toMillis?: () => number };
           };
+          const dataWithImage = data as typeof data & { imageUrl?: string };
           return {
             id: d.id,
             uid: data.uid || "",
             username: data.username || "anon",
             message: data.message || "",
+            imageUrl: dataWithImage.imageUrl || null,
             timestamp: data.createdAt?.toMillis
               ? new Date(data.createdAt.toMillis()).toISOString()
               : new Date().toISOString(),
@@ -217,14 +230,18 @@ export function usePostComments(postId: string, enabled = true) {
 export function useAddComment() {
   const { user } = useAuth();
   return useCallback(
-    async (postId: string, message: string, username: string) => {
+    async (
+      postId: string,
+      input: { message: string; username: string; imageUrl?: string | null }
+    ) => {
       if (!db || !user || postId.startsWith("local-")) {
         throw new Error("Sign in to leave a comment.");
       }
       await addDoc(collection(db, POSTS_COLLECTION, postId, "comments"), {
         uid: user.uid,
-        username,
-        message,
+        username: input.username,
+        message: input.message,
+        imageUrl: input.imageUrl || null,
         createdAt: serverTimestamp(),
       });
     },
@@ -233,13 +250,20 @@ export function useAddComment() {
 }
 
 export function useUpdateComment() {
-  return useCallback(async (postId: string, commentId: string, message: string) => {
-    if (!db || postId.startsWith("local-")) return;
-    await updateDoc(doc(db, POSTS_COLLECTION, postId, "comments", commentId), {
-      message,
-      editedAt: serverTimestamp(),
-    });
-  }, []);
+  return useCallback(
+    async (
+      postId: string,
+      commentId: string,
+      patch: { message?: string; imageUrl?: string | null }
+    ) => {
+      if (!db || postId.startsWith("local-")) return;
+      const update: Record<string, unknown> = { editedAt: serverTimestamp() };
+      if (patch.message !== undefined) update.message = patch.message;
+      if (patch.imageUrl !== undefined) update.imageUrl = patch.imageUrl;
+      await updateDoc(doc(db, POSTS_COLLECTION, postId, "comments", commentId), update);
+    },
+    []
+  );
 }
 
 export function useDeleteComment() {

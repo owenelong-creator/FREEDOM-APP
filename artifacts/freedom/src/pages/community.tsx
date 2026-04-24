@@ -46,12 +46,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import ImageUpload from "@/components/image-upload";
 
 const REACTION_EMOJIS = ["❤️", "🔥", "💪", "🙌", "🌱"];
 
 type ReportTarget =
   | { kind: "post"; postId: string; snapshot: string; authorUid?: string; authorUsername?: string }
-  | { kind: "comment"; postId: string; commentId: string; snapshot: string; authorUid?: string; authorUsername?: string };
+  | {
+      kind: "comment";
+      postId: string;
+      commentId: string;
+      snapshot: string;
+      authorUid?: string;
+      authorUsername?: string;
+    };
 
 function ItemMenu({
   isOwner,
@@ -124,16 +132,24 @@ function CommentRow({
   const deleteComment = useDeleteComment();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(comment.message);
+  const [editImage, setEditImage] = useState<string | null>(comment.imageUrl || null);
+  const [editError, setEditError] = useState<string | null>(null);
   const isOwner = !!myUid && comment.uid === myUid;
 
   const handleSave = async () => {
     const next = draft.trim();
-    if (!next || next === comment.message) {
+    const imageChanged = editImage !== (comment.imageUrl || null);
+    if (!next && !editImage) {
+      setEditError("Comment can't be empty.");
+      return;
+    }
+    if (next === comment.message && !imageChanged) {
       setEditing(false);
       return;
     }
-    await updateComment(postId, comment.id, next);
+    await updateComment(postId, comment.id, { message: next, imageUrl: editImage });
     setEditing(false);
+    setEditError(null);
   };
 
   const handleDelete = async () => {
@@ -142,10 +158,7 @@ function CommentRow({
   };
 
   return (
-    <div
-      className="flex gap-2 items-start py-2"
-      data-testid={`comment-${comment.id}`}
-    >
+    <div className="flex gap-2 items-start py-2" data-testid={`comment-${comment.id}`}>
       <div className="w-6 h-6 mt-0.5 rounded-full bg-muted/60 flex items-center justify-center text-[10px] font-mono font-bold text-muted-foreground shrink-0">
         {comment.username.slice(0, 2).toUpperCase()}
       </div>
@@ -160,7 +173,7 @@ function CommentRow({
           </div>
           <ItemMenu
             isOwner={isOwner}
-            onEdit={isOwner ? () => setEditing(true) : undefined}
+            onEdit={isOwner ? () => { setDraft(comment.message); setEditImage(comment.imageUrl || null); setEditing(true); } : undefined}
             onDelete={isOwner ? handleDelete : undefined}
             onReport={() =>
               onReport({
@@ -184,8 +197,15 @@ function CommentRow({
               className="bg-background border-border text-foreground resize-none h-16 text-sm"
               data-testid={`comment-${comment.id}-edit-input`}
             />
+            <ImageUpload
+              scope="comments"
+              value={editImage}
+              onChange={setEditImage}
+              onError={setEditError}
+            />
+            {editError && <p className="text-[11px] font-mono text-destructive">{editError}</p>}
             <div className="flex gap-2 justify-end">
-              <Button size="sm" variant="ghost" onClick={() => { setDraft(comment.message); setEditing(false); }}>
+              <Button size="sm" variant="ghost" onClick={() => { setDraft(comment.message); setEditImage(comment.imageUrl || null); setEditing(false); setEditError(null); }}>
                 Cancel
               </Button>
               <Button size="sm" onClick={handleSave} className="font-mono uppercase tracking-widest text-[10px]">
@@ -194,9 +214,21 @@ function CommentRow({
             </div>
           </div>
         ) : (
-          <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-snug mt-0.5">
-            {comment.message}
-          </p>
+          <>
+            {comment.message && (
+              <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-snug mt-0.5">
+                {comment.message}
+              </p>
+            )}
+            {comment.imageUrl && (
+              <img
+                src={comment.imageUrl}
+                alt="comment attachment"
+                className="mt-1.5 max-h-60 rounded-md border border-border"
+                loading="lazy"
+              />
+            )}
+          </>
         )}
       </div>
     </div>
@@ -217,17 +249,19 @@ function CommentThread({
   const comments = usePostComments(postId, true);
   const addComment = useAddComment();
   const [draft, setDraft] = useState("");
+  const [image, setImage] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSend = async () => {
     const text = draft.trim();
-    if (!text) return;
+    if (!text && !image) return;
     setPosting(true);
     setError(null);
     try {
-      await addComment(postId, text, myUsername);
+      await addComment(postId, { message: text, username: myUsername, imageUrl: image });
       setDraft("");
+      setImage(null);
     } catch (e: unknown) {
       const err = e as { message?: string };
       setError(err.message || "Could not post comment.");
@@ -249,24 +283,27 @@ function CommentThread({
         ))}
       </div>
       {myUid ? (
-        <div className="flex items-end gap-2 pt-2">
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            maxLength={280}
-            placeholder="Write a reply…"
-            className="bg-background border-border text-foreground resize-none h-12 min-h-[3rem] text-sm py-2"
-            data-testid={`comment-input-${postId}`}
-          />
-          <Button
-            size="sm"
-            onClick={handleSend}
-            disabled={!draft.trim() || posting}
-            className="h-10 px-3"
-            data-testid={`comment-submit-${postId}`}
-          >
-            <Send size={14} />
-          </Button>
+        <div className="space-y-2 pt-2">
+          <div className="flex items-end gap-2">
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              maxLength={280}
+              placeholder="Write a reply…"
+              className="bg-background border-border text-foreground resize-none h-12 min-h-[3rem] text-sm py-2"
+              data-testid={`comment-input-${postId}`}
+            />
+            <Button
+              size="sm"
+              onClick={handleSend}
+              disabled={(!draft.trim() && !image) || posting}
+              className="h-10 px-3"
+              data-testid={`comment-submit-${postId}`}
+            >
+              <Send size={14} />
+            </Button>
+          </div>
+          <ImageUpload scope="comments" value={image} onChange={setImage} onError={setError} />
         </div>
       ) : (
         <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 pt-2">
@@ -296,6 +333,8 @@ function PostCard({
   const userReacted = userReactions[post.id] || {};
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(post.message);
+  const [editImage, setEditImage] = useState<string | null>(post.imageUrl || null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
 
   const isOwner = !!myUid && post.uid === myUid;
@@ -308,12 +347,18 @@ function PostCard({
 
   const handleSaveEdit = async () => {
     const next = draft.trim();
-    if (!next || next === post.message) {
+    const imageChanged = editImage !== (post.imageUrl || null);
+    if (!next && !editImage) {
+      setEditError("Post can't be empty.");
+      return;
+    }
+    if (next === post.message && !imageChanged) {
       setEditing(false);
       return;
     }
-    await updatePost(post.id, next);
+    await updatePost(post.id, { message: next, imageUrl: editImage });
     setEditing(false);
+    setEditError(null);
   };
 
   const handleDelete = async () => {
@@ -323,6 +368,7 @@ function PostCard({
 
   return (
     <div
+      id={`post-${post.id}`}
       className="bg-card border border-border rounded-lg p-4 space-y-3"
       data-testid={`post-${post.id}`}
     >
@@ -345,7 +391,7 @@ function PostCard({
           </span>
           <ItemMenu
             isOwner={isOwner}
-            onEdit={isOwner ? () => setEditing(true) : undefined}
+            onEdit={isOwner ? () => { setDraft(post.message); setEditImage(post.imageUrl || null); setEditing(true); } : undefined}
             onDelete={isOwner ? handleDelete : undefined}
             onReport={() =>
               onReport({
@@ -370,8 +416,10 @@ function PostCard({
             className="bg-background border-border text-foreground resize-none h-24"
             data-testid={`post-${post.id}-edit-input`}
           />
+          <ImageUpload scope="posts" value={editImage} onChange={setEditImage} onError={setEditError} />
+          {editError && <p className="text-[11px] font-mono text-destructive">{editError}</p>}
           <div className="flex gap-2 justify-end">
-            <Button variant="ghost" size="sm" onClick={() => { setDraft(post.message); setEditing(false); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setDraft(post.message); setEditImage(post.imageUrl || null); setEditing(false); setEditError(null); }}>
               Cancel
             </Button>
             <Button size="sm" onClick={handleSaveEdit} className="font-mono uppercase tracking-widest text-[10px]">
@@ -380,9 +428,21 @@ function PostCard({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-          {post.message}
-        </p>
+        <>
+          {post.message && (
+            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+              {post.message}
+            </p>
+          )}
+          {post.imageUrl && (
+            <img
+              src={post.imageUrl}
+              alt="post attachment"
+              className="rounded-lg border border-border max-h-96 w-full object-cover"
+              loading="lazy"
+            />
+          )}
+        </>
       )}
 
       <div className="flex flex-wrap gap-2 pt-1 items-center">
@@ -449,6 +509,7 @@ export default function Community() {
     () => appName.toLowerCase().replace(/[^a-z0-9]/g, "") || "you"
   );
   const [messageDraft, setMessageDraft] = useState("");
+  const [composerImage, setComposerImage] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
 
@@ -476,12 +537,13 @@ export default function Community() {
     const text = messageDraft.trim();
     const username =
       usernameDraft.trim().toLowerCase().replace(/[^a-z0-9_]/g, "") || "you";
-    if (!text) return;
+    if (!text && !composerImage) return;
     setPosting(true);
     setPostError(null);
     try {
-      await addPost({ username, message: text, streak: myStreak });
+      await addPost({ username, message: text, streak: myStreak, imageUrl: composerImage });
       setMessageDraft("");
+      setComposerImage(null);
       setIsComposerOpen(false);
     } catch (e: unknown) {
       const err = e as { message?: string };
@@ -600,9 +662,7 @@ export default function Community() {
 
           <div className="space-y-3 pt-2">
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">
-                Username
-              </label>
+              <label className="text-xs text-muted-foreground block mb-1">Username</label>
               <Input
                 value={usernameDraft}
                 onChange={(e) => setUsernameDraft(e.target.value)}
@@ -631,9 +691,13 @@ export default function Community() {
                 {messageDraft.length}/280
               </p>
             </div>
-            {postError && (
-              <p className="text-xs font-mono text-destructive">{postError}</p>
-            )}
+            <ImageUpload
+              scope="posts"
+              value={composerImage}
+              onChange={setComposerImage}
+              onError={setPostError}
+            />
+            {postError && <p className="text-xs font-mono text-destructive">{postError}</p>}
           </div>
 
           <DialogFooter className="flex-row justify-between sm:justify-between pt-2">
@@ -642,7 +706,7 @@ export default function Community() {
             </Button>
             <Button
               onClick={handlePost}
-              disabled={!messageDraft.trim() || posting}
+              disabled={(!messageDraft.trim() && !composerImage) || posting}
               className="font-mono uppercase tracking-widest text-xs"
               data-testid="button-submit-post"
             >

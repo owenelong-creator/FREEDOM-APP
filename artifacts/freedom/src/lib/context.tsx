@@ -18,6 +18,7 @@ export type CommunityPost = {
   uid?: string;
   username: string;
   message: string;
+  imageUrl?: string | null;
   streak: string;
   timestamp: string;
   editedAt?: string | null;

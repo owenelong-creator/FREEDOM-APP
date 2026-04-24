@@ -1,57 +1,96 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // -------- Users --------
-    // Each signed-in user can read & write only their own user doc.
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // -------- Posts --------
-    // Anyone signed in can read the feed and create a post.
-    // Only the author (matched by uid on the doc) can edit or delete it.
-    match /posts/{postId} {
-      allow read: if request.auth != null;
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'owenelong@gmail.com';
+    }
 
-      allow create: if request.auth != null
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.message is string
-        && request.resource.data.message.size() > 0
-        && request.resource.data.message.size() <= 280;
+    function isBanned() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/bans/$(request.auth.uid));
+    }
 
-      allow update: if request.auth != null && (
-        // Author can edit their own post.
-        resource.data.uid == request.auth.uid
-        // OR anyone signed in can update only the `reactions` map (for ❤️ 🔥 etc).
-        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+    // ---- Profiles ----
+    match /profiles/{uid} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && request.auth.uid == uid;
+      allow delete: if isAdmin();
+    }
+
+    // ---- Username history (cooldown enforcement) ----
+    match /usernameHistory/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ---- Community posts ----
+    match /communityPosts/{postId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+                    && !isBanned()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() <= 280
+                    && (
+                      !('imageUrl' in request.resource.data) ||
+                      request.resource.data.imageUrl == null ||
+                      request.resource.data.imageUrl is string
+                    );
+
+      allow update: if isSignedIn() && (
+        // Owner can edit their own message + image
+        (resource.data.uid == request.auth.uid
+          && request.resource.data.uid == resource.data.uid)
+        // Anyone signed in can update reactions only
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']))
+        // Admin override
+        || isAdmin()
       );
 
-      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && (
+        resource.data.uid == request.auth.uid || isAdmin()
+      );
 
-      // -------- Comments (subcollection of posts) --------
+      // ---- Comments ----
       match /comments/{commentId} {
-        allow read: if request.auth != null;
+        allow read: if true;
 
-        allow create: if request.auth != null
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.message is string
-          && request.resource.data.message.size() > 0
-          && request.resource.data.message.size() <= 280;
+        allow create: if isSignedIn()
+                      && !isBanned()
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.message is string
+                      && request.resource.data.message.size() <= 280;
 
-        allow update, delete: if request.auth != null
-          && resource.data.uid == request.auth.uid;
+        allow update: if isSignedIn() && (
+          (resource.data.uid == request.auth.uid
+            && request.resource.data.uid == resource.data.uid)
+          || isAdmin()
+        );
+
+        allow delete: if isSignedIn() && (
+          resource.data.uid == request.auth.uid || isAdmin()
+        );
       }
     }
 
-    // -------- Reports --------
-    // Any signed-in user can file a report. Reports are write-only from the
-    // client; reading/triaging happens in the Firebase Console.
+    // ---- Reports ----
     match /reports/{reportId} {
-      allow create: if request.auth != null
-        && request.resource.data.reporterUid == request.auth.uid;
-      allow read, update, delete: if false;
+      allow create: if isSignedIn()
+                    && request.resource.data.reporterUid == request.auth.uid;
+      allow read, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ---- Bans ----
+    match /bans/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isAdmin();
     }
   }
 }

@@ -18,11 +18,11 @@ service cloud.firestore {
     // ---- Profiles ----
     match /profiles/{uid} {
       allow read: if true;
-      allow create, update: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isSignedIn() && request.auth.uid == uid;
       allow delete: if isAdmin();
     }
 
-    // ---- Username history (cooldown enforcement) ----
+    // ---- Username history ----
     match /usernameHistory/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow write: if isSignedIn() && request.auth.uid == uid;
@@ -32,49 +32,44 @@ service cloud.firestore {
     match /communityPosts/{postId} {
       allow read: if true;
 
+      // Any signed-in non-banned user can post as themselves.
       allow create: if isSignedIn()
                     && !isBanned()
-                    && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.message is string
-                    && request.resource.data.message.size() <= 280;
+                    && request.resource.data.uid == request.auth.uid;
 
-      allow update: if isSignedIn() && (
-        // Owner can edit their own post (uid must not change)
-        (resource.data.uid == request.auth.uid
-          && request.resource.data.uid == resource.data.uid)
-        // Anyone signed in can update reactions only
-        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']))
-        // Admin override
-        || isAdmin()
-      );
+      // Owner can edit (uid must stay the same).
+      // Anyone signed in can update reactions only.
+      // Admin can do anything.
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.uid == request.auth.uid
+                        && request.resource.data.uid == resource.data.uid)
+                    || (isSignedIn()
+                        && request.resource.data.diff(resource.data)
+                              .affectedKeys().hasOnly(['reactions']));
 
-      allow delete: if isSignedIn() && (
-        resource.data.uid == request.auth.uid || isAdmin()
-      );
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.uid == request.auth.uid);
 
-      // ---- Comments ----
+      // ---- Comments under each post ----
       match /comments/{commentId} {
         allow read: if true;
 
         allow create: if isSignedIn()
                       && !isBanned()
-                      && request.resource.data.uid == request.auth.uid
-                      && request.resource.data.message is string
-                      && request.resource.data.message.size() <= 280;
+                      && request.resource.data.uid == request.auth.uid;
 
-        allow update: if isSignedIn() && (
-          (resource.data.uid == request.auth.uid
-            && request.resource.data.uid == resource.data.uid)
-          || isAdmin()
-        );
+        allow update: if isAdmin()
+                      || (isSignedIn()
+                          && resource.data.uid == request.auth.uid
+                          && request.resource.data.uid == resource.data.uid);
 
-        allow delete: if isSignedIn() && (
-          resource.data.uid == request.auth.uid || isAdmin()
-        );
+        allow delete: if isAdmin()
+                      || (isSignedIn() && resource.data.uid == request.auth.uid);
       }
     }
 
-    // ---- Reports ----
+    // ---- Reports (admin-reviewed) ----
     match /reports/{reportId} {
       allow create: if isSignedIn()
                     && request.resource.data.reporterUid == request.auth.uid;
@@ -82,9 +77,9 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ---- Bans ----
+    // ---- Bans (admin-managed) ----
     match /bans/{uid} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
   }

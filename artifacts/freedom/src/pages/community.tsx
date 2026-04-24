@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Plus,
-  X,
   Wifi,
   WifiOff,
   MoreVertical,
@@ -632,31 +631,27 @@ export default function Community() {
         </div>
       )}
 
-      <button
-        onClick={() => setIsComposerOpen(true)}
-        disabled={configured && !user}
-        style={{
-          bottom: "calc(140px + env(safe-area-inset-bottom))",
-          right: "16px",
-        }}
-        className="fixed z-[55] bg-stat text-background font-mono font-bold uppercase tracking-widest text-xs px-4 py-3 rounded-full shadow-xl shadow-black/40 flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
-        data-testid="button-post-update"
-      >
-        <Plus size={16} />
-        Post Update
-      </button>
+      {!isComposerOpen && (
+        <button
+          onClick={() => setIsComposerOpen(true)}
+          disabled={configured && !user}
+          style={{
+            bottom: "calc(140px + env(safe-area-inset-bottom))",
+            right: "16px",
+          }}
+          className="fixed z-40 bg-stat text-background font-mono font-bold uppercase tracking-widest text-xs px-4 py-3 rounded-full shadow-xl shadow-black/40 flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+          data-testid="button-post-update"
+        >
+          <Plus size={16} />
+          Post Update
+        </button>
+      )}
 
       <Dialog open={isComposerOpen} onOpenChange={setIsComposerOpen}>
         <DialogContent className="bg-card border-border sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-foreground font-serif text-xl flex items-center justify-between">
+            <DialogTitle className="text-foreground font-serif text-xl">
               Share an update
-              <button
-                onClick={() => setIsComposerOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X size={18} />
-              </button>
             </DialogTitle>
           </DialogHeader>
 

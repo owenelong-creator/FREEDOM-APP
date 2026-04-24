@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Plus,
@@ -280,11 +280,13 @@ function CommentRow({
   postId,
   myUid,
   onReport,
+  highlight,
 }: {
   comment: CommunityComment;
   postId: string;
   myUid?: string;
   onReport: (target: ReportTarget) => void;
+  highlight?: boolean;
 }) {
   const updateComment = useUpdateComment();
   const deleteComment = useDeleteComment();
@@ -317,7 +319,11 @@ function CommentRow({
   };
 
   return (
-    <div className="flex gap-2 items-start py-2" data-testid={`comment-${comment.id}`}>
+    <div
+      id={`comment-${comment.id}`}
+      className={`flex gap-2 items-start py-2 rounded ${highlight ? "bg-primary/5 ring-1 ring-primary/30 -mx-2 px-2" : ""}`}
+      data-testid={`comment-${comment.id}`}
+    >
       <div className="w-6 h-6 mt-0.5 rounded-full bg-muted/60 flex items-center justify-center text-[10px] font-mono font-bold text-muted-foreground shrink-0">
         {comment.username.slice(0, 2).toUpperCase()}
       </div>
@@ -402,13 +408,23 @@ function CommentThread({
   myUid,
   myUsername,
   onReport,
+  focusedCommentId,
 }: {
   postId: string;
   myUid?: string;
   myUsername: string;
   onReport: (target: ReportTarget) => void;
+  focusedCommentId?: string | null;
 }) {
   const comments = usePostComments(postId, true);
+
+  useEffect(() => {
+    if (!focusedCommentId) return;
+    const el = document.getElementById(`comment-${focusedCommentId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [focusedCommentId, comments.length]);
   const addComment = useAddComment();
   const [draft, setDraft] = useState("");
   const [image, setImage] = useState<string | null>(null);
@@ -447,6 +463,7 @@ function CommentThread({
             postId={postId}
             myUid={myUid}
             onReport={onReport}
+            highlight={focusedCommentId === c.id}
           />
         ))}
       </div>
@@ -488,11 +505,17 @@ function PostCard({
   myUid,
   myUsername,
   onReport,
+  highlight,
+  defaultCommentsOpen,
+  focusedCommentId,
 }: {
   post: CommunityPost;
   myUid?: string;
   myUsername: string;
   onReport: (target: ReportTarget) => void;
+  highlight?: boolean;
+  defaultCommentsOpen?: boolean;
+  focusedCommentId?: string | null;
 }) {
   const { reactions: userReactions, toggleReaction } = useFreedom();
   const toggleRemote = useToggleCommunityReaction();
@@ -503,10 +526,14 @@ function PostCard({
   const [draft, setDraft] = useState(post.message);
   const [editImage, setEditImage] = useState<string | null>(post.imageUrl || null);
   const [editError, setEditError] = useState<string | null>(null);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState<boolean>(!!defaultCommentsOpen);
 
   const isOwner = !!myUid && post.uid === myUid;
   const canReport = !!myUid && !isOwner && !post.id.startsWith("local-");
+
+  useEffect(() => {
+    if (defaultCommentsOpen) setCommentsOpen(true);
+  }, [defaultCommentsOpen]);
 
   const handleClick = (emoji: string) => {
     const wasLiked = !!userReacted[emoji];
@@ -538,7 +565,9 @@ function PostCard({
   return (
     <div
       id={`post-${post.id}`}
-      className="bg-card border border-border rounded-lg p-4 space-y-3"
+      className={`bg-card border rounded-lg p-4 space-y-3 transition-colors ${
+        highlight ? "border-primary/60 ring-1 ring-primary/30" : "border-border"
+      }`}
       data-testid={`post-${post.id}`}
     >
       <div className="flex items-center justify-between">
@@ -664,6 +693,7 @@ function PostCard({
           myUid={myUid}
           myUsername={myUsername}
           onReport={onReport}
+          focusedCommentId={focusedCommentId}
         />
       )}
     </div>
@@ -682,6 +712,47 @@ export default function Community() {
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+  const [focus, setFocus] = useState<{
+    postId: string;
+    commentId?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const parseHash = () => {
+      const raw = window.location.hash.replace(/^#/, "");
+      if (!raw) {
+        setFocus(null);
+        return;
+      }
+      const commentMatch = raw.match(/^comment-([^-]+(?:-[^-]+)*?)-in-(.+)$/);
+      if (commentMatch) {
+        setFocus({ commentId: commentMatch[1], postId: commentMatch[2] });
+        return;
+      }
+      const postMatch = raw.match(/^post-(.+)$/);
+      if (postMatch) {
+        setFocus({ postId: postMatch[1] });
+        return;
+      }
+      setFocus(null);
+    };
+    parseHash();
+    window.addEventListener("hashchange", parseHash);
+    return () => window.removeEventListener("hashchange", parseHash);
+  }, []);
+
+  useEffect(() => {
+    if (!focus) return;
+    if (posts.length === 0) return;
+    const tryScroll = () => {
+      const el = document.getElementById(`post-${focus.postId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+    const t = window.setTimeout(tryScroll, 50);
+    return () => window.clearTimeout(t);
+  }, [focus, posts.length]);
 
   const myUsername = useMemo(
     () => appName.toLowerCase().replace(/[^a-z0-9_]/g, "") || "you",
@@ -747,15 +818,21 @@ export default function Community() {
         </div>
       ) : (
         <div className="space-y-3">
-          {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              myUid={user?.uid}
-              myUsername={myUsername}
-              onReport={setReportTarget}
-            />
-          ))}
+          {posts.map((post) => {
+            const isFocused = focus?.postId === post.id;
+            return (
+              <PostCard
+                key={post.id}
+                post={post}
+                myUid={user?.uid}
+                myUsername={myUsername}
+                onReport={setReportTarget}
+                highlight={isFocused}
+                defaultCommentsOpen={isFocused && !!focus?.commentId}
+                focusedCommentId={isFocused ? focus?.commentId : undefined}
+              />
+            );
+          })}
         </div>
       )}
 

@@ -12,7 +12,9 @@ import Journal from "@/pages/journal";
 import Community from "@/pages/community";
 import Fortress from "@/pages/fortress";
 import Settings from "@/pages/settings";
+import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
+import WarningNotifications from "@/components/warning-notifications";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +27,7 @@ function Router() {
         <Route path="/community" component={Community} />
         <Route path="/fortress" component={Fortress} />
         <Route path="/settings" component={Settings} />
+        <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -42,6 +45,7 @@ function App() {
                 <Router />
               </WouterRouter>
               <WelcomeModal />
+              <WarningNotifications />
               <Toaster />
             </TooltipProvider>
           </FreedomProvider>

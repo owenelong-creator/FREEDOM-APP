@@ -3,6 +3,7 @@ import {
   db,
   collection,
   query,
+  where,
   orderBy,
   limit,
   onSnapshot,
@@ -32,6 +33,27 @@ export type ReportInput = {
   targetMessage?: string | null;
   reason?: string;
 };
+
+export type ReportStatus = "open" | "dismissed" | "removed";
+
+export type ReportRecord = {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  postId: string;
+  targetUid: string | null;
+  targetUsername: string | null;
+  targetMessage: string | null;
+  reason: string | null;
+  reporterUid: string | null;
+  reporterEmail: string | null;
+  status: ReportStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+};
+
+export type WarningKind = "warning" | "removal";
 
 export type CommunityComment = {
   id: string;
@@ -283,6 +305,166 @@ export function useDeleteComment() {
     if (!db || postId.startsWith("local-")) return;
     await deleteDoc(doc(db, POSTS_COLLECTION, postId, "comments", commentId));
   }, []);
+}
+
+const NOTIFICATION_MESSAGES: Record<WarningKind, string> = {
+  warning: "First warning for community violations.",
+  removal: "Your content was removed — please be more careful.",
+};
+
+async function writeWarningNotification(
+  uid: string,
+  kind: WarningKind,
+  context: { reportId: string; targetType: ReportTargetType; targetId: string; targetMessage: string | null }
+) {
+  if (!db || !uid) return;
+  await addDoc(collection(db, "users", uid, "notifications"), {
+    kind,
+    message: NOTIFICATION_MESSAGES[kind],
+    reportId: context.reportId,
+    targetType: context.targetType,
+    targetId: context.targetId,
+    targetMessage: context.targetMessage,
+    seen: false,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Subscribe to all reports for the admin dashboard, newest first.
+ * `statusFilter` defaults to "open"; pass "all" to show every report.
+ */
+export function useAdminReports(statusFilter: ReportStatus | "all" = "open") {
+  const [reports, setReports] = useState<ReportRecord[]>([]);
+  const [loading, setLoading] = useState<boolean>(isFirebaseConfigured);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!db) {
+      setLoading(false);
+      setReports([]);
+      return;
+    }
+    setLoading(true);
+    const baseCol = collection(db, REPORTS_COLLECTION);
+    const q =
+      statusFilter === "all"
+        ? query(baseCol, orderBy("createdAt", "desc"), limit(200))
+        : query(
+            baseCol,
+            where("status", "==", statusFilter),
+            orderBy("createdAt", "desc"),
+            limit(200)
+          );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list: ReportRecord[] = snap.docs.map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
+          const resolvedAt = data.resolvedAt as { toMillis?: () => number } | undefined;
+          return {
+            id: d.id,
+            targetType: (data.targetType as ReportTargetType) || "post",
+            targetId: (data.targetId as string) || "",
+            postId: (data.postId as string) || "",
+            targetUid: (data.targetUid as string) || null,
+            targetUsername: (data.targetUsername as string) || null,
+            targetMessage: (data.targetMessage as string) || null,
+            reason: (data.reason as string) || null,
+            reporterUid: (data.reporterUid as string) || null,
+            reporterEmail: (data.reporterEmail as string) || null,
+            status: (data.status as ReportStatus) || "open",
+            createdAt: createdAt?.toMillis
+              ? new Date(createdAt.toMillis()).toISOString()
+              : new Date().toISOString(),
+            resolvedAt: resolvedAt?.toMillis
+              ? new Date(resolvedAt.toMillis()).toISOString()
+              : null,
+            resolvedBy: (data.resolvedBy as string) || null,
+          };
+        });
+        setReports(list);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        console.warn("[freedom] admin reports subscription failed", err);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, [statusFilter]);
+
+  return { reports, loading, error };
+}
+
+/**
+ * Dismiss a report (no content removed) and send the offender a "first warning"
+ * notification. Safe to call only from the admin page.
+ */
+export function useDismissReport() {
+  const { user } = useAuth();
+  return useCallback(
+    async (report: ReportRecord) => {
+      if (!db) throw new Error("Reports unavailable offline.");
+      if (!user) throw new Error("Sign in required.");
+      await updateDoc(doc(db, REPORTS_COLLECTION, report.id), {
+        status: "dismissed",
+        resolvedAt: serverTimestamp(),
+        resolvedBy: user.uid,
+      });
+      if (report.targetUid) {
+        await writeWarningNotification(report.targetUid, "warning", {
+          reportId: report.id,
+          targetType: report.targetType,
+          targetId: report.targetId,
+          targetMessage: report.targetMessage,
+        });
+      }
+    },
+    [user]
+  );
+}
+
+/**
+ * Delete the reported post or comment, mark the report as removed, and notify
+ * the offender that their content was taken down.
+ */
+export function useDeleteReportedContent() {
+  const { user } = useAuth();
+  return useCallback(
+    async (report: ReportRecord) => {
+      if (!db) throw new Error("Reports unavailable offline.");
+      if (!user) throw new Error("Sign in required.");
+      try {
+        if (report.targetType === "post") {
+          await deleteDoc(doc(db, POSTS_COLLECTION, report.postId));
+        } else {
+          await deleteDoc(
+            doc(db, POSTS_COLLECTION, report.postId, "comments", report.targetId)
+          );
+        }
+      } catch (e) {
+        console.warn("[freedom] reported content delete failed (already removed?)", e);
+      }
+      await updateDoc(doc(db, REPORTS_COLLECTION, report.id), {
+        status: "removed",
+        resolvedAt: serverTimestamp(),
+        resolvedBy: user.uid,
+      });
+      if (report.targetUid) {
+        await writeWarningNotification(report.targetUid, "removal", {
+          reportId: report.id,
+          targetType: report.targetType,
+          targetId: report.targetId,
+          targetMessage: report.targetMessage,
+        });
+      }
+    },
+    [user]
+  );
 }
 
 /**

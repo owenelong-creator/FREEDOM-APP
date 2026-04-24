@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
+import { Link } from "wouter";
 import { format, startOfWeek, addWeeks, isSameWeek } from "date-fns";
-import { Shield, Sun, Moon, LogOut, UserCircle } from "lucide-react";
+import { Shield, Sun, Moon, LogOut, UserCircle, ShieldAlert, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useIsAdmin } from "@/lib/admin";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useFreedom } from "@/lib/context";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 export default function Settings() {
   const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme, usernameCooldownRemainingMs } = useFreedom();
   const { user, signOut, configured } = useAuth();
+  const isAdmin = useIsAdmin();
 
   // Group urges into the last 8 weeks
   const weeklyUrges = useMemo(() => {
@@ -305,6 +308,30 @@ export default function Settings() {
             </div>
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="space-y-4">
+            <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
+              Moderation
+            </h3>
+            <Link
+              href="/admin"
+              className="flex items-center justify-between bg-card border border-border p-4 rounded-lg hover:bg-card/80 transition-colors"
+              data-testid="link-admin-reports"
+            >
+              <div className="flex items-center gap-3">
+                <ShieldAlert size={20} className="text-destructive" />
+                <div>
+                  <div className="text-sm text-foreground font-medium">Reports</div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    Review reported posts and comments
+                  </div>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-muted-foreground" />
+            </Link>
+          </div>
+        )}
 
         <div className="space-y-4">
           <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">

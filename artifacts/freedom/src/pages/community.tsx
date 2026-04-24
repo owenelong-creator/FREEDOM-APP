@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useFreedom } from "@/lib/context";
 import { useAuth } from "@/lib/auth-context";
+import { useMyBanState, describeBan } from "@/lib/bans";
 import {
   useCommunityFeed,
   useAddCommunityPost,
@@ -281,12 +282,14 @@ function CommentRow({
   myUid,
   onReport,
   highlight,
+  communityBlocked,
 }: {
   comment: CommunityComment;
   postId: string;
   myUid?: string;
   onReport: (target: ReportTarget) => void;
   highlight?: boolean;
+  communityBlocked?: boolean;
 }) {
   const updateComment = useUpdateComment();
   const deleteComment = useDeleteComment();
@@ -295,7 +298,7 @@ function CommentRow({
   const [editImage, setEditImage] = useState<string | null>(comment.imageUrl || null);
   const [editError, setEditError] = useState<string | null>(null);
   const isOwner = !!myUid && comment.uid === myUid;
-  const canReport = !!myUid && !isOwner && !postId.startsWith("local-");
+  const canReport = !!myUid && !isOwner && !postId.startsWith("local-") && !communityBlocked;
 
   const handleSave = async () => {
     const next = draft.trim();
@@ -409,12 +412,16 @@ function CommentThread({
   myUsername,
   onReport,
   focusedCommentId,
+  communityBlocked,
+  blockedMessage,
 }: {
   postId: string;
   myUid?: string;
   myUsername: string;
   onReport: (target: ReportTarget) => void;
   focusedCommentId?: string | null;
+  communityBlocked?: boolean;
+  blockedMessage?: string;
 }) {
   const comments = usePostComments(postId, true);
 
@@ -464,10 +471,15 @@ function CommentThread({
             myUid={myUid}
             onReport={onReport}
             highlight={focusedCommentId === c.id}
+            communityBlocked={communityBlocked}
           />
         ))}
       </div>
-      {myUid ? (
+      {communityBlocked ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] font-mono text-destructive">
+          {blockedMessage || "You can't reply right now."}
+        </div>
+      ) : myUid ? (
         <div className="space-y-2 pt-2">
           <div className="flex items-end gap-2">
             <Textarea
@@ -508,6 +520,8 @@ function PostCard({
   highlight,
   defaultCommentsOpen,
   focusedCommentId,
+  communityBlocked,
+  blockedMessage,
 }: {
   post: CommunityPost;
   myUid?: string;
@@ -516,6 +530,8 @@ function PostCard({
   highlight?: boolean;
   defaultCommentsOpen?: boolean;
   focusedCommentId?: string | null;
+  communityBlocked?: boolean;
+  blockedMessage?: string;
 }) {
   const { reactions: userReactions, toggleReaction } = useFreedom();
   const toggleRemote = useToggleCommunityReaction();
@@ -529,7 +545,7 @@ function PostCard({
   const [commentsOpen, setCommentsOpen] = useState<boolean>(!!defaultCommentsOpen);
 
   const isOwner = !!myUid && post.uid === myUid;
-  const canReport = !!myUid && !isOwner && !post.id.startsWith("local-");
+  const canReport = !!myUid && !isOwner && !post.id.startsWith("local-") && !communityBlocked;
 
   useEffect(() => {
     if (defaultCommentsOpen) setCommentsOpen(true);
@@ -694,6 +710,8 @@ function PostCard({
           myUsername={myUsername}
           onReport={onReport}
           focusedCommentId={focusedCommentId}
+          communityBlocked={communityBlocked}
+          blockedMessage={blockedMessage}
         />
       )}
     </div>
@@ -705,6 +723,7 @@ export default function Community() {
   const { user, configured } = useAuth();
   const { posts, online } = useCommunityFeed(100);
   const addPost = useAddCommunityPost();
+  const { ban, blocked } = useMyBanState();
 
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [messageDraft, setMessageDraft] = useState("");
@@ -810,6 +829,20 @@ export default function Community() {
             Add Firebase config to enable the live feed.
           </p>
         )}
+        {blocked && ban && (
+          <div
+            className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2"
+            data-testid="community-ban-banner"
+          >
+            <p className="text-[10px] font-mono uppercase tracking-widest text-destructive">
+              {ban.kind === "ban" ? "Banned" : "Suspended"}
+            </p>
+            <p className="text-xs text-foreground/90 mt-0.5">{describeBan(ban)}</p>
+            <p className="text-[10px] font-mono text-muted-foreground mt-1">
+              You can still read the feed.
+            </p>
+          </div>
+        )}
       </div>
 
       {posts.length === 0 ? (
@@ -830,13 +863,15 @@ export default function Community() {
                 highlight={isFocused}
                 defaultCommentsOpen={isFocused && !!focus?.commentId}
                 focusedCommentId={isFocused ? focus?.commentId : undefined}
+                communityBlocked={blocked}
+                blockedMessage={ban ? describeBan(ban) : undefined}
               />
             );
           })}
         </div>
       )}
 
-      {!isComposerOpen && (
+      {!isComposerOpen && !blocked && (
         <button
           onClick={() => setIsComposerOpen(true)}
           disabled={configured && !user}

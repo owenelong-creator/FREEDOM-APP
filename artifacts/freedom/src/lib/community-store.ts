@@ -15,6 +15,7 @@ import {
   isFirebaseConfigured,
 } from "./firebase";
 import { useAuth } from "./auth-context";
+import { assertNotBanned } from "./bans";
 import type { CommunityPost } from "./context";
 
 const POSTS_COLLECTION = "posts";
@@ -143,6 +144,7 @@ export function useAddCommunityPost() {
   return useCallback(
     async (post: { username: string; message: string; streak: string; imageUrl?: string | null }) => {
       if (db && user) {
+        await assertNotBanned(user.uid);
         await addDoc(collection(db, POSTS_COLLECTION), {
           uid: user.uid,
           username: post.username,
@@ -270,6 +272,7 @@ export function useAddComment() {
       if (!db || !user || postId.startsWith("local-")) {
         throw new Error("Sign in to leave a comment.");
       }
+      await assertNotBanned(user.uid);
       await addDoc(collection(db, POSTS_COLLECTION, postId, "comments"), {
         uid: user.uid,
         username: input.username,
@@ -484,6 +487,7 @@ export function useSubmitReport() {
       if (input.postId.startsWith("local-")) {
         throw new Error("Local-only posts can't be reported.");
       }
+      await assertNotBanned(user.uid);
       const reason = (input.reason || "").trim().slice(0, 500);
       await addDoc(collection(db, REPORTS_COLLECTION), {
         targetType: input.targetType,

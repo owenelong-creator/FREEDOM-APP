@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { formatDistanceToNow, format } from "date-fns";
-import { ShieldAlert, ExternalLink, Trash2, Check, ArrowLeft } from "lucide-react";
+import {
+  ShieldAlert,
+  ExternalLink,
+  Trash2,
+  Check,
+  ArrowLeft,
+  Clock,
+  Ban,
+} from "lucide-react";
 import {
   useAdminReports,
   useDismissReport,
@@ -10,8 +18,18 @@ import {
   type ReportStatus,
 } from "@/lib/community-store";
 import { useIsAdmin } from "@/lib/admin";
+import { useSuspendUser, useBanUser } from "@/lib/bans";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const STATUS_TABS: { id: ReportStatus | "all"; label: string }[] = [
   { id: "open", label: "Open" },
@@ -35,12 +53,270 @@ function StatusPill({ status }: { status: ReportStatus }) {
   );
 }
 
+const SUSPEND_PRESETS = [
+  { days: 1, label: "1 day" },
+  { days: 7, label: "7 days" },
+  { days: 14, label: "14 days" },
+  { days: 30, label: "30 days" },
+];
+
+function SuspendDialog({
+  report,
+  open,
+  onOpenChange,
+}: {
+  report: ReportRecord;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const suspend = useSuspendUser();
+  const [days, setDays] = useState<number>(7);
+  const [customDays, setCustomDays] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const effectiveDays = customDays.trim()
+    ? Math.max(1, Math.floor(Number(customDays) || 0))
+    : days;
+
+  const handleSubmit = async () => {
+    if (!report.targetUid) {
+      setError("This report has no associated user.");
+      return;
+    }
+    if (!effectiveDays || effectiveDays < 1) {
+      setError("Enter a number of days greater than zero.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await suspend({
+        uid: report.targetUid,
+        username: report.targetUsername,
+        days: effectiveDays,
+        reason: `Reported ${report.targetType}: ${report.reason || "—"}`,
+      });
+      onOpenChange(false);
+      setCustomDays("");
+      setDays(7);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      setError(err.message || "Could not suspend user.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const untilPreview = new Date(
+    Date.now() + effectiveDays * 86_400_000
+  ).toLocaleString();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-card border-border sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-foreground font-serif text-xl flex items-center gap-2">
+            <Clock size={18} /> Suspend @{report.targetUsername || "user"}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Temporary block from posting, commenting, and reporting in the community.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-1">
+          <div className="space-y-2">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Preset
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {SUSPEND_PRESETS.map((p) => {
+                const active = !customDays && days === p.days;
+                return (
+                  <button
+                    key={p.days}
+                    type="button"
+                    onClick={() => {
+                      setDays(p.days);
+                      setCustomDays("");
+                    }}
+                    className={`py-2 rounded-md font-mono text-[11px] uppercase tracking-widest border transition-colors ${
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                    }`}
+                    data-testid={`suspend-preset-${p.days}`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Custom (days)
+            </label>
+            <Input
+              type="number"
+              min={1}
+              max={3650}
+              placeholder="e.g. 90"
+              value={customDays}
+              onChange={(e) => setCustomDays(e.target.value)}
+              className="bg-background border-border"
+              data-testid="suspend-custom-days"
+            />
+          </div>
+
+          <div className="rounded-md border border-border/60 bg-background/40 p-3">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Suspension lifts
+            </div>
+            <div className="text-sm text-foreground mt-0.5">{untilPreview}</div>
+          </div>
+
+          {error && <p className="text-xs font-mono text-destructive">{error}</p>}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+            className="font-mono uppercase tracking-widest text-xs"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={busy || !report.targetUid}
+            className="font-mono uppercase tracking-widest text-xs"
+            data-testid="suspend-confirm"
+          >
+            {busy ? "Suspending…" : `Suspend ${effectiveDays}d`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BanDialog({
+  report,
+  open,
+  onOpenChange,
+}: {
+  report: ReportRecord;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const banUser = useBanUser();
+  const [confirmText, setConfirmText] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const canSubmit = confirmText.trim().toUpperCase() === "BAN" && !!report.targetUid;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await banUser({
+        uid: report.targetUid!,
+        username: report.targetUsername,
+        reason: reason || `Reported ${report.targetType}: ${report.reason || "—"}`,
+      });
+      onOpenChange(false);
+      setConfirmText("");
+      setReason("");
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      setError(err.message || "Could not ban user.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-card border-destructive/40 sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-destructive font-serif text-xl flex items-center gap-2">
+            <Ban size={18} /> Ban @{report.targetUsername || "user"}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Permanent. Blocks the user from posting, commenting, and reporting forever. They can still read the feed.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 pt-1">
+          <div className="space-y-1">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Reason (optional)
+            </label>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Repeated harassment after warning…"
+              className="bg-background border-border"
+              data-testid="ban-reason"
+            />
+          </div>
+
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 space-y-2">
+            <p className="text-xs text-destructive">
+              Type <span className="font-mono font-bold">BAN</span> to confirm.
+            </p>
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="BAN"
+              className="bg-background border-destructive/40 font-mono uppercase tracking-widest"
+              autoCapitalize="characters"
+              autoComplete="off"
+              data-testid="ban-confirm-input"
+            />
+          </div>
+
+          {error && <p className="text-xs font-mono text-destructive">{error}</p>}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+            className="font-mono uppercase tracking-widest text-xs"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleSubmit}
+            disabled={busy || !canSubmit}
+            className="font-mono uppercase tracking-widest text-xs"
+            data-testid="ban-confirm"
+          >
+            {busy ? "Banning…" : "Ban permanently"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ReportCard({ report }: { report: ReportRecord }) {
   const [, navigate] = useLocation();
   const dismissReport = useDismissReport();
   const deleteContent = useDeleteReportedContent();
   const [busy, setBusy] = useState<"dismiss" | "delete" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [suspendOpen, setSuspendOpen] = useState(false);
+  const [banOpen, setBanOpen] = useState(false);
 
   const handleViewContext = () => {
     const focus =
@@ -160,7 +436,30 @@ function ReportCard({ report }: { report: ReportRecord }) {
           <Check size={12} className="mr-1" />
           {busy === "dismiss" ? "Dismissing…" : "Dismiss report"}
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setSuspendOpen(true)}
+          disabled={!report.targetUid}
+          className="font-mono uppercase tracking-widest text-[10px] border-stat/40 text-stat hover:bg-stat/10"
+          data-testid={`admin-report-${report.id}-suspend`}
+        >
+          <Clock size={12} className="mr-1" /> Suspend user
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setBanOpen(true)}
+          disabled={!report.targetUid}
+          className="font-mono uppercase tracking-widest text-[10px] border-destructive/40 text-destructive hover:bg-destructive/10"
+          data-testid={`admin-report-${report.id}-ban`}
+        >
+          <Ban size={12} className="mr-1" /> Ban user
+        </Button>
       </div>
+
+      <SuspendDialog report={report} open={suspendOpen} onOpenChange={setSuspendOpen} />
+      <BanDialog report={report} open={banOpen} onOpenChange={setBanOpen} />
     </div>
   );
 }

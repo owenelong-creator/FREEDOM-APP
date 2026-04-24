@@ -22,6 +22,10 @@ export type BanRecord = {
   byUid: string | null;
   /** Snapshot of the username at the time of action, for admin readability. */
   username: string | null;
+  /** When the user submitted an appeal (null if they haven't). */
+  appealAt: string | null;
+  /** The user's appeal message, if any. */
+  appealMessage: string | null;
 };
 
 const BANS_COLLECTION = "bans";
@@ -36,6 +40,7 @@ function parseBan(uid: string, raw: Record<string, unknown> | null): BanRecord |
     untilIso = untilField;
   }
   const createdField = raw.createdAt as { toMillis?: () => number } | undefined;
+  const appealField = raw.appealAt as { toMillis?: () => number } | undefined;
   return {
     uid,
     kind: (raw.kind as BanKind) || "ban",
@@ -46,6 +51,10 @@ function parseBan(uid: string, raw: Record<string, unknown> | null): BanRecord |
       : null,
     byUid: (raw.byUid as string) || null,
     username: (raw.username as string) || null,
+    appealAt: appealField?.toMillis
+      ? new Date(appealField.toMillis()).toISOString()
+      : null,
+    appealMessage: (raw.appealMessage as string) || null,
   };
 }
 

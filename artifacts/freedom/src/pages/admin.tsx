@@ -19,6 +19,7 @@ import {
 } from "@/lib/community-store";
 import { useIsAdmin } from "@/lib/admin";
 import { useSuspendUser, useBanUser } from "@/lib/bans";
+import { useSeedTestPosts, useSeedTestReports } from "@/lib/test-seed";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -470,6 +471,28 @@ export default function Admin() {
   const [, navigate] = useLocation();
   const [statusFilter, setStatusFilter] = useState<ReportStatus | "all">("open");
   const { reports, loading: loadingReports, error } = useAdminReports(statusFilter);
+  const seedPosts = useSeedTestPosts();
+  const seedReports = useSeedTestReports();
+  const [seeding, setSeeding] = useState(false);
+  const [seedMessage, setSeedMessage] = useState<string | null>(null);
+
+  const handleSeed = async () => {
+    if (!user) return;
+    setSeeding(true);
+    setSeedMessage(null);
+    try {
+      const r = await seedPosts();
+      const reportsAdded = await seedReports(user.uid, user.email || null);
+      setSeedMessage(
+        `Created ${r.posts} dummy posts, ${r.comments} comment, ${reportsAdded} reports.`
+      );
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      setSeedMessage(err.message || "Failed to seed test data.");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -511,6 +534,30 @@ export default function Admin() {
             Review reported posts and comments. Actions are logged in Firestore.
           </p>
         </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-lg p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="text-xs font-medium text-foreground">Test data</div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Seed 3 rude dummy posts + reports for testing
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSeed}
+            disabled={seeding}
+            className="font-mono uppercase tracking-widest text-[10px]"
+            data-testid="admin-seed"
+          >
+            {seeding ? "Seeding…" : "Seed dummy data"}
+          </Button>
+        </div>
+        {seedMessage && (
+          <p className="text-[11px] font-mono text-muted-foreground">{seedMessage}</p>
+        )}
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">

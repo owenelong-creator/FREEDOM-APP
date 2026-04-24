@@ -14,6 +14,7 @@ import {
 import { useFreedom } from "@/lib/context";
 import { useAuth } from "@/lib/auth-context";
 import { useMyBanState, describeBan } from "@/lib/bans";
+import BannedScreen from "@/components/banned-screen";
 import {
   useCommunityFeed,
   useAddCommunityPost,
@@ -805,6 +806,10 @@ export default function Community() {
       setPosting(false);
     }
   };
+
+  if (ban && ban.kind === "ban") {
+    return <BannedScreen ban={ban} />;
+  }
 
   return (
     <div className="py-8 space-y-6">

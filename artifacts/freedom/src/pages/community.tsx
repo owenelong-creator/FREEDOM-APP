@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useFreedom } from "@/lib/context";
 import { useAuth } from "@/lib/auth-context";
+import { useMyBan } from "@/lib/admin";
 import {
   useCommunityFeed,
   useAddCommunityPost,
@@ -237,11 +238,13 @@ function CommentThread({
   postId,
   myUid,
   myUsername,
+  banned,
   onReport,
 }: {
   postId: string;
   myUid?: string;
   myUsername: string;
+  banned: boolean;
   onReport: (target: ReportTarget) => void;
 }) {
   const comments = usePostComments(postId, true);
@@ -280,7 +283,7 @@ function CommentThread({
           <CommentRow key={c.id} comment={c} postId={postId} myUid={myUid} onReport={onReport} />
         ))}
       </div>
-      {myUid ? (
+      {myUid && !banned ? (
         <div className="space-y-2 pt-2">
           <div className="flex items-end gap-2">
             <Textarea
@@ -305,7 +308,7 @@ function CommentThread({
         </div>
       ) : (
         <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 pt-2">
-          Sign in to reply.
+          {banned ? "You can't reply while restricted." : "Sign in to reply."}
         </p>
       )}
       {error && <p className="text-xs font-mono text-destructive">{error}</p>}
@@ -317,11 +320,13 @@ function PostCard({
   post,
   myUid,
   myUsername,
+  banned,
   onReport,
 }: {
   post: CommunityPost;
   myUid?: string;
   myUsername: string;
+  banned: boolean;
   onReport: (target: ReportTarget) => void;
 }) {
   const { reactions: userReactions, toggleReaction } = useFreedom();
@@ -488,6 +493,7 @@ function PostCard({
           postId={post.id}
           myUid={myUid}
           myUsername={myUsername}
+          banned={banned}
           onReport={onReport}
         />
       )}
@@ -498,6 +504,7 @@ function PostCard({
 export default function Community() {
   const { appName, startDate } = useFreedom();
   const { user, configured } = useAuth();
+  const myBan = useMyBan();
   const { posts, online } = useCommunityFeed(100);
   const addPost = useAddCommunityPost();
   const reportContent = useReportContent();
@@ -528,7 +535,20 @@ export default function Community() {
     return `Day ${days}`;
   }, [startDate]);
 
+  const formatBanMessage = (): string => {
+    if (!myBan.active) return "";
+    if (myBan.kind === "permanent" || !myBan.expiresAt) {
+      return `Your account is permanently banned${myBan.reason ? `: ${myBan.reason}` : "."}`;
+    }
+    const days = Math.ceil(myBan.remainingMs / (24 * 60 * 60 * 1000));
+    return `You're suspended for ${days} more day${days === 1 ? "" : "s"}${myBan.reason ? ` (${myBan.reason})` : ""}.`;
+  };
+
   const handlePost = async () => {
+    if (myBan.active) {
+      setPostError(formatBanMessage());
+      return;
+    }
     const text = messageDraft.trim();
     const username = myUsername;
     if (!text && !composerImage) return;
@@ -615,6 +635,7 @@ export default function Community() {
               post={post}
               myUid={user?.uid}
               myUsername={myUsername}
+              banned={myBan.active}
               onReport={(t) => {
                 setReportTarget(t);
                 setReportReason("");
@@ -626,10 +647,22 @@ export default function Community() {
         </div>
       )}
 
+      {myBan.active && (
+        <div
+          className="bg-destructive/10 border border-destructive/40 rounded-lg p-3 text-sm text-destructive"
+          data-testid="ban-banner"
+        >
+          <div className="font-mono text-[10px] uppercase tracking-widest mb-1">
+            {myBan.kind === "permanent" ? "Account banned" : "Account suspended"}
+          </div>
+          {formatBanMessage()}
+        </div>
+      )}
+
       {!isComposerOpen && (
         <button
           onClick={() => setIsComposerOpen(true)}
-          disabled={configured && !user}
+          disabled={(configured && !user) || myBan.active}
           style={{
             bottom: "calc(140px + env(safe-area-inset-bottom))",
             right: "16px",

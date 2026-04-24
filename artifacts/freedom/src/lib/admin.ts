@@ -175,6 +175,67 @@ export function useSuspendUser() {
   );
 }
 
+export type MyBan = {
+  active: boolean;
+  kind: "permanent" | "suspension" | null;
+  reason: string;
+  expiresAt: Date | null;
+  remainingMs: number;
+};
+
+export function useMyBan(): MyBan {
+  const { user } = useAuth();
+  const [state, setState] = useState<MyBan>({
+    active: false,
+    kind: null,
+    reason: "",
+    expiresAt: null,
+    remainingMs: 0,
+  });
+
+  useEffect(() => {
+    if (!db || !user) {
+      setState({ active: false, kind: null, reason: "", expiresAt: null, remainingMs: 0 });
+      return;
+    }
+    const ref = doc(db, "bans", user.uid);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        if (!snap.exists()) {
+          setState({ active: false, kind: null, reason: "", expiresAt: null, remainingMs: 0 });
+          return;
+        }
+        const data = snap.data() as {
+          kind?: "permanent" | "suspension";
+          reason?: string;
+          expiresAt?: { toDate?: () => Date } | null;
+        };
+        const expires =
+          data.expiresAt && typeof data.expiresAt.toDate === "function"
+            ? data.expiresAt.toDate()
+            : null;
+        const now = Date.now();
+        const remainingMs = expires ? expires.getTime() - now : Infinity;
+        const active = expires === null || remainingMs > 0;
+        setState({
+          active,
+          kind: (data.kind as MyBan["kind"]) || (expires ? "suspension" : "permanent"),
+          reason: data.reason || "",
+          expiresAt: expires,
+          remainingMs: remainingMs === Infinity ? 0 : Math.max(0, remainingMs),
+        });
+      },
+      () => {
+        setState({ active: false, kind: null, reason: "", expiresAt: null, remainingMs: 0 });
+      }
+    );
+    return unsub;
+  }, [user]);
+
+  return state;
+}
+
 export function useUnbanUser() {
   return useCallback(async (uid: string) => {
     if (!db) return;

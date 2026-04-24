@@ -2,126 +2,75 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ---------- Helpers ----------
     function isSignedIn() {
       return request.auth != null;
     }
 
     function isAdmin() {
-      return isSignedIn()
-        && request.auth.token.email == 'owenelong@gmail.com';
+      return isSignedIn() && request.auth.token.email == 'owenelong@gmail.com';
     }
 
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
-    // True only if the signed-in user has an ACTIVE ban or suspension.
-    // - No `expiresAt` field    => permanent ban (active forever)
-    // - `expiresAt` is null     => permanent ban (active forever)
-    // - `expiresAt` is in past  => suspension expired (NOT active)
-    // - `expiresAt` in future   => suspension active
-    function isBanned() {
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/bans/$(request.auth.uid))
-        && (
-          !('expiresAt' in get(/databases/$(database)/documents/bans/$(request.auth.uid)).data)
-          || get(/databases/$(database)/documents/bans/$(request.auth.uid)).data.expiresAt == null
-          || get(/databases/$(database)/documents/bans/$(request.auth.uid)).data.expiresAt > request.time
-        );
-    }
-
-    // ---------- Profiles (public, owner-writable) ----------
+    // ---- Profiles ----
     match /profiles/{uid} {
-      allow read:   if isSignedIn();
-      allow write:  if isOwner(uid);
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == uid;
       allow delete: if isAdmin();
     }
 
-    // ---------- Username history (per-user + admin) ----------
+    // ---- Username history ----
     match /usernameHistory/{uid} {
-      allow read:  if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid);
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == uid;
     }
 
-    // ---------- Community posts ----------
+    // ---- Community posts ----
     match /communityPosts/{postId} {
-      // READ: any signed-in user can read all posts
-      allow read: if isSignedIn();
+      allow read: if true;
 
-      // CREATE: any signed-in, non-banned user can post as themselves
       allow create: if isSignedIn()
-                    && !isBanned()
                     && request.resource.data.uid == request.auth.uid;
 
-      // UPDATE: three allowed paths
-      //   1) Admin can update anything
-      //   2) Owner can edit their own post (uid must remain unchanged) — only if not banned
-      //   3) Any signed-in user can toggle reactions only
       allow update: if isAdmin()
-                    || (
-                         isOwner(resource.data.uid)
-                         && !isBanned()
-                         && request.resource.data.uid == resource.data.uid
-                       )
-                    || (
-                         isSignedIn()
-                         && request.resource.data.diff(resource.data)
-                              .affectedKeys().hasOnly(['reactions'])
-                       );
+                    || (isSignedIn()
+                        && resource.data.uid == request.auth.uid
+                        && request.resource.data.uid == resource.data.uid)
+                    || (isSignedIn()
+                        && request.resource.data.diff(resource.data)
+                              .affectedKeys().hasOnly(['reactions']));
 
-      // DELETE: admin or the post's owner
-      allow delete: if isAdmin() || isOwner(resource.data.uid);
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.uid == request.auth.uid);
 
-      // ---------- Comments under each post ----------
+      // ---- Comments ----
       match /comments/{commentId} {
-        // READ: any signed-in user can read all comments
-        allow read: if isSignedIn();
+        allow read: if true;
 
-        // CREATE: any signed-in, non-banned user can comment as themselves
         allow create: if isSignedIn()
-                      && !isBanned()
                       && request.resource.data.uid == request.auth.uid;
 
-        // UPDATE: admin OR comment's owner (uid must remain unchanged) — owner must not be banned
         allow update: if isAdmin()
-                      || (
-                           isOwner(resource.data.uid)
-                           && !isBanned()
-                           && request.resource.data.uid == resource.data.uid
-                         );
+                      || (isSignedIn()
+                          && resource.data.uid == request.auth.uid
+                          && request.resource.data.uid == resource.data.uid);
 
-        // DELETE: admin or the comment's owner
-        allow delete: if isAdmin() || isOwner(resource.data.uid);
+        allow delete: if isAdmin()
+                      || (isSignedIn() && resource.data.uid == request.auth.uid);
       }
     }
 
-    // ---------- Reports (admin-managed inbox) ----------
+    // ---- Reports ----
     match /reports/{reportId} {
-      // CREATE: any signed-in user can submit a report tagged with their uid
       allow create: if isSignedIn()
                     && request.resource.data.reporterUid == request.auth.uid;
-
-      // READ + UPDATE: admin only (status changes, notes, triage)
       allow read, update: if isAdmin();
-
-      // DELETE: never (audit trail)
       allow delete: if false;
     }
 
-    // ---------- Bans / Suspensions (admin-only writes) ----------
-    // Doc ID = the banned user's uid.
-    // Doc shape:
-    //   { bannedAt: ts, bannedBy: uid, reason: str, kind: 'permanent'|'suspension',
-    //     expiresAt: ts|null, durationDays?: number }
+    // ---- Bans / Suspensions ----
+    // Admin-only writes. All signed-in users can read so the app can enforce
+    // bans client-side (block posting UI for banned/suspended users).
     match /bans/{uid} {
-      // READ: signed-in users can read ban docs (needed for the rule engine + client UI)
       allow read: if isSignedIn();
-
-      // WRITE (create/update/delete): admin only
-      // - Create permanent ban  : expiresAt = null, kind = 'permanent'
-      // - Create suspension     : expiresAt = future timestamp, kind = 'suspension'
-      // - Lift early            : delete the doc
       allow write: if isAdmin();
     }
   }

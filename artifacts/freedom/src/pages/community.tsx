@@ -29,7 +29,6 @@ import {
 import type { CommunityPost } from "@/lib/context";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -504,9 +503,6 @@ export default function Community() {
   const reportContent = useReportContent();
 
   const [isComposerOpen, setIsComposerOpen] = useState(false);
-  const [usernameDraft, setUsernameDraft] = useState(
-    () => appName.toLowerCase().replace(/[^a-z0-9]/g, "") || "you"
-  );
   const [messageDraft, setMessageDraft] = useState("");
   const [composerImage, setComposerImage] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
@@ -534,8 +530,7 @@ export default function Community() {
 
   const handlePost = async () => {
     const text = messageDraft.trim();
-    const username =
-      usernameDraft.trim().toLowerCase().replace(/[^a-z0-9_]/g, "") || "you";
+    const username = myUsername;
     if (!text && !composerImage) return;
     setPosting(true);
     setPostError(null);
@@ -656,22 +651,25 @@ export default function Community() {
           </DialogHeader>
 
           <div className="space-y-3 pt-2">
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Username</label>
-              <Input
-                value={usernameDraft}
-                onChange={(e) => setUsernameDraft(e.target.value)}
-                maxLength={20}
-                placeholder="you"
-                className="bg-background border-border text-foreground"
-                data-testid="input-post-username"
-              />
+            <div className="flex items-center justify-between bg-background/60 border border-border/60 rounded-md px-3 py-2">
+              <div className="min-w-0">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Posting as
+                </div>
+                <div className="text-sm text-foreground font-medium truncate" data-testid="composer-username">
+                  @{myUsername}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Streak
+                </div>
+                <div className="text-sm text-primary font-mono">{myStreak}</div>
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">
-                Streak: <span className="text-primary font-mono">{myStreak}</span>
-              </label>
-            </div>
+            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+              Change your username in Settings (30-day cooldown).
+            </p>
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Message</label>
               <Textarea

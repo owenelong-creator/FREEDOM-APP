@@ -36,15 +36,10 @@ service cloud.firestore {
                     && !isBanned()
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.message is string
-                    && request.resource.data.message.size() <= 280
-                    && (
-                      !('imageUrl' in request.resource.data) ||
-                      request.resource.data.imageUrl == null ||
-                      request.resource.data.imageUrl is string
-                    );
+                    && request.resource.data.message.size() <= 280;
 
       allow update: if isSignedIn() && (
-        // Owner can edit their own message + image
+        // Owner can edit their own post (uid must not change)
         (resource.data.uid == request.auth.uid
           && request.resource.data.uid == resource.data.uid)
         // Anyone signed in can update reactions only

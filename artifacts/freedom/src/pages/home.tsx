@@ -6,6 +6,67 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+const RESET_QUOTES = [
+  "Every setback is a setup for a comeback.",
+  "You're not starting over, you're starting stronger.",
+  "This is your moment. Own it.",
+  "Progress isn't perfect, but it's yours.",
+  "One day at a time. You've got this.",
+  "The only bad day is the one you didn't learn from.",
+  "Fall down seven times, stand up eight.",
+  "You are stronger than your strongest excuse.",
+  "Small steps forward are still forward.",
+  "Your future self is watching. Make them proud.",
+  "Pain is temporary. Pride is forever.",
+  "What you're building is worth the fight.",
+  "You've survived 100% of your bad days.",
+  "Discipline is choosing between what you want now and what you want most.",
+  "Every reset is a new beginning.",
+  "You're allowed to be a work in progress.",
+  "The comeback is always stronger than the setback.",
+  "You didn't come this far to only come this far.",
+  "Keep going. Your breakthrough is closer than you think.",
+  "Today is day one of the rest of your life.",
+  "Strength grows in the moments you think you can't continue.",
+  "You are the author of your next chapter.",
+  "Turn the page. A new story starts today.",
+  "Resilience is accepting the storm and still choosing to dance in the rain.",
+  "You've got more fight in you than you know.",
+  "Don't count the days, make the days count.",
+  "This is tough, but so are you.",
+  "You are not defined by your worst moment.",
+  "Growth happens when you choose to begin again.",
+  "One reset at a time. You're doing great.",
+];
+
+const RESET_QUOTES_RECENT_KEY = "freedom_reset_quote_recent";
+const RESET_QUOTES_AVOID_RECENT = 10;
+
+function pickResetQuote(): string {
+  let recent: number[] = [];
+  try {
+    const raw = localStorage.getItem(RESET_QUOTES_RECENT_KEY);
+    if (raw) recent = JSON.parse(raw);
+    if (!Array.isArray(recent)) recent = [];
+  } catch {
+    recent = [];
+  }
+  const recentSet = new Set(recent);
+  const candidates: number[] = [];
+  for (let i = 0; i < RESET_QUOTES.length; i++) {
+    if (!recentSet.has(i)) candidates.push(i);
+  }
+  const pool = candidates.length > 0 ? candidates : RESET_QUOTES.map((_, i) => i);
+  const idx = pool[Math.floor(Math.random() * pool.length)];
+  const nextRecent = [...recent, idx].slice(-RESET_QUOTES_AVOID_RECENT);
+  try {
+    localStorage.setItem(RESET_QUOTES_RECENT_KEY, JSON.stringify(nextRecent));
+  } catch {
+    /* ignore */
+  }
+  return RESET_QUOTES[idx];
+}
+
 const DAILY_QUOTES = [
   "The chains you break today free the future you tomorrow.",
   "Discipline is choosing what you want most over what you want now.",
@@ -65,19 +126,6 @@ export default function Home() {
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [encouragement, setEncouragement] = useState<string | null>(null);
-
-  const QUOTES = [
-    "Every setback is a setup for a comeback.",
-    "You're not starting over, you're starting stronger.",
-    "This is your moment. Own it.",
-    "Progress isn't perfect, but it's yours.",
-    "One day at a time. You've got this.",
-    "The only bad day is the one you didn't learn from.",
-    "Fall down seven times, stand up eight.",
-    "You are stronger than your strongest excuse.",
-    "Small steps forward are still forward.",
-    "Your future self is already proud.",
-  ];
 
   useEffect(() => {
     if (!startDate) return;
@@ -147,7 +195,7 @@ export default function Home() {
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
       try { navigator.vibrate(50); } catch { /* ignore */ }
     }
-    setEncouragement(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+    setEncouragement(pickResetQuote());
   };
 
   return (

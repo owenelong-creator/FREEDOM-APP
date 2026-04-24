@@ -5,6 +5,7 @@ import {
   ShieldAlert,
   Trash2,
   UserX,
+  Clock,
   Check,
   ExternalLink,
   Loader2,
@@ -17,16 +18,44 @@ import {
   useUpdateReport,
   useDeleteReportedContent,
   useBanUser,
+  useSuspendUser,
   type Report,
   type ReportStatus,
 } from "@/lib/admin";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+type SuspendChoice = { label: string; days: number | "custom" };
+const SUSPEND_PRESETS: SuspendChoice[] = [
+  { label: "1 day", days: 1 },
+  { label: "7 days", days: 7 },
+  { label: "30 days", days: 30 },
+  { label: "Custom…", days: "custom" },
+];
 
 function ReportCard({ report }: { report: Report }) {
   const updateReport = useUpdateReport();
   const deleteContent = useDeleteReportedContent();
   const banUser = useBanUser();
+  const suspendUser = useSuspendUser();
+  const [suspendOpen, setSuspendOpen] = useState(false);
+  const [suspendDays, setSuspendDays] = useState<number>(7);
   const [, navigate] = useLocation();
 
   const [notes, setNotes] = useState(report.notes || "");
@@ -64,12 +93,28 @@ function ReportCard({ report }: { report: Report }) {
       }
       if (
         !window.confirm(
-          `Ban @${report.authorUsername || report.authorUid}? They won't be able to post.`
+          `Permanently ban @${report.authorUsername || report.authorUid}? They won't be able to post or comment.`
         )
       )
         return;
       await banUser(report.authorUid, `Reported ${report.kind} ${report.id}`);
       await updateReport(report.id, { status: "resolved", notes });
+    });
+
+  const handleSuspend = (days: number) =>
+    run("suspend", async () => {
+      if (!report.authorUid) {
+        setError("No author UID on this report.");
+        return;
+      }
+      const safeDays = Math.max(1, Math.min(3650, Math.round(days)));
+      await suspendUser(
+        report.authorUid,
+        safeDays,
+        `Reported ${report.kind} ${report.id}`
+      );
+      await updateReport(report.id, { status: "resolved", notes });
+      setSuspendOpen(false);
     });
 
   const handleDismiss = () =>
@@ -173,6 +218,47 @@ function ReportCard({ report }: { report: Report }) {
           {busy === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
           Delete content
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!!busy || !report.authorUid}
+              className="text-[10px] font-mono uppercase tracking-widest gap-1 border-stat/40 text-stat hover:bg-stat/10"
+              data-testid={`report-${report.id}-suspend`}
+            >
+              {busy === "suspend" ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Clock size={12} />
+              )}
+              Suspend
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-44 bg-card border-border">
+            <DropdownMenuLabel className="text-[10px] font-mono uppercase tracking-widest">
+              Suspend duration
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {SUSPEND_PRESETS.map((opt) => (
+              <DropdownMenuItem
+                key={opt.label}
+                className="text-xs cursor-pointer"
+                onClick={() => {
+                  if (opt.days === "custom") {
+                    setSuspendOpen(true);
+                  } else {
+                    handleSuspend(opt.days);
+                  }
+                }}
+                data-testid={`report-${report.id}-suspend-${typeof opt.days === "number" ? opt.days : "custom"}`}
+              >
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Button
           size="sm"
           variant="outline"
@@ -182,7 +268,7 @@ function ReportCard({ report }: { report: Report }) {
           data-testid={`report-${report.id}-ban`}
         >
           {busy === "ban" ? <Loader2 size={12} className="animate-spin" /> : <UserX size={12} />}
-          Ban user
+          Ban (permanent)
         </Button>
         {report.status !== "open" ? (
           <Button
@@ -220,6 +306,46 @@ function ReportCard({ report }: { report: Report }) {
       </div>
 
       {error && <p className="text-xs font-mono text-destructive">{error}</p>}
+
+      <Dialog open={suspendOpen} onOpenChange={setSuspendOpen}>
+        <DialogContent className="bg-card border-border sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-foreground font-serif text-lg">
+              Custom suspension
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              How many days should @{report.authorUsername || "this user"} be suspended?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-2 space-y-2">
+            <Input
+              type="number"
+              min={1}
+              max={3650}
+              value={suspendDays}
+              onChange={(e) => setSuspendDays(Number(e.target.value) || 1)}
+              className="bg-background border-border text-foreground"
+              data-testid={`report-${report.id}-suspend-custom-input`}
+            />
+            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Min 1 · Max 3650 days
+            </p>
+          </div>
+          <DialogFooter className="flex-row justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setSuspendOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleSuspend(suspendDays)}
+              disabled={busy === "suspend"}
+              className="font-mono uppercase tracking-widest text-xs"
+              data-testid={`report-${report.id}-suspend-confirm`}
+            >
+              {busy === "suspend" ? "Suspending…" : `Suspend ${suspendDays}d`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

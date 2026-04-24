@@ -147,8 +147,37 @@ export function useBanUser() {
         bannedAt: serverTimestamp(),
         bannedBy: user?.uid || null,
         reason: reason || "",
+        expiresAt: null,
+        kind: "permanent",
       });
     },
     [user]
   );
+}
+
+export function useSuspendUser() {
+  const { user } = useAuth();
+  return useCallback(
+    async (uid: string, durationDays: number, reason?: string) => {
+      if (!db) return;
+      const ms = Math.max(1, Math.round(durationDays)) * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + ms);
+      await setDoc(doc(db, "bans", uid), {
+        bannedAt: serverTimestamp(),
+        bannedBy: user?.uid || null,
+        reason: reason || "",
+        expiresAt,
+        kind: "suspension",
+        durationDays: Math.round(durationDays),
+      });
+    },
+    [user]
+  );
+}
+
+export function useUnbanUser() {
+  return useCallback(async (uid: string) => {
+    if (!db) return;
+    await deleteDoc(doc(db, "bans", uid));
+  }, []);
 }

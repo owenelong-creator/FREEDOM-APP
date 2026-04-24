@@ -10,9 +10,16 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email == 'owenelong@gmail.com';
     }
 
+    // True if the signed-in user has an active ban or suspension.
+    // A ban with no expiresAt (or expiresAt in the future) is active.
     function isBanned() {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/bans/$(request.auth.uid));
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/bans/$(request.auth.uid))
+        && (
+          !('expiresAt' in get(/databases/$(database)/documents/bans/$(request.auth.uid)).data)
+          || get(/databases/$(database)/documents/bans/$(request.auth.uid)).data.expiresAt == null
+          || get(/databases/$(database)/documents/bans/$(request.auth.uid)).data.expiresAt > request.time
+        );
     }
 
     // ---- Profiles ----
@@ -32,18 +39,15 @@ service cloud.firestore {
     match /communityPosts/{postId} {
       allow read: if true;
 
-      // Any signed-in non-banned user can post as themselves.
       allow create: if isSignedIn()
-                    && !isBanned()
-                    && request.resource.data.uid == request.auth.uid;
+                    && request.resource.data.uid == request.auth.uid
+                    && !isBanned();
 
-      // Owner can edit (uid must stay the same).
-      // Anyone signed in can update reactions only.
-      // Admin can do anything.
       allow update: if isAdmin()
                     || (isSignedIn()
                         && resource.data.uid == request.auth.uid
-                        && request.resource.data.uid == resource.data.uid)
+                        && request.resource.data.uid == resource.data.uid
+                        && !isBanned())
                     || (isSignedIn()
                         && request.resource.data.diff(resource.data)
                               .affectedKeys().hasOnly(['reactions']));
@@ -51,25 +55,26 @@ service cloud.firestore {
       allow delete: if isAdmin()
                     || (isSignedIn() && resource.data.uid == request.auth.uid);
 
-      // ---- Comments under each post ----
+      // ---- Comments ----
       match /comments/{commentId} {
         allow read: if true;
 
         allow create: if isSignedIn()
-                      && !isBanned()
-                      && request.resource.data.uid == request.auth.uid;
+                      && request.resource.data.uid == request.auth.uid
+                      && !isBanned();
 
         allow update: if isAdmin()
                       || (isSignedIn()
                           && resource.data.uid == request.auth.uid
-                          && request.resource.data.uid == resource.data.uid);
+                          && request.resource.data.uid == resource.data.uid
+                          && !isBanned());
 
         allow delete: if isAdmin()
                       || (isSignedIn() && resource.data.uid == request.auth.uid);
       }
     }
 
-    // ---- Reports (admin-reviewed) ----
+    // ---- Reports ----
     match /reports/{reportId} {
       allow create: if isSignedIn()
                     && request.resource.data.reporterUid == request.auth.uid;
@@ -77,7 +82,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ---- Bans (admin-managed) ----
+    // ---- Bans / Suspensions (admin only writes) ----
     match /bans/{uid} {
       allow read: if isSignedIn();
       allow write: if isAdmin();

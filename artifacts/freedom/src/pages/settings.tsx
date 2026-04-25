@@ -396,7 +396,7 @@ export default function Settings() {
 
         <div className="pt-8 pb-4 text-center">
           <p className="text-xs font-mono text-muted-foreground/50 uppercase tracking-widest">
-            {appName} v1.3.1
+            {appName} v1.4.0
           </p>
         </div>
       </div>

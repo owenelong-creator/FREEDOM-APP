@@ -119,7 +119,7 @@ const MILESTONES = [
 ];
 
 export default function Home() {
-  const { startDate, setStartDate, urgeSessions, resetAll, whyReason } = useFreedom();
+  const { startDate, setStartDate, urgeSessions, resetAll, reasons } = useFreedom();
   const [now, setNow] = useState(new Date());
   
   const [resetStep, setResetStep] = useState(1);
@@ -255,23 +255,38 @@ export default function Home() {
         </motion.div>
       </div>
 
-      {/* Personal "why" reminder — set in the Journal page */}
-      {whyReason.trim() && (
-        <div
-          className="bg-primary/5 border border-primary/30 rounded-2xl px-6 py-5 mx-1"
-          data-testid="why-reminder"
-        >
-          <div className="flex items-center gap-2 mb-3">
+      {/* Personal reasons — set in the Journal page, swipe to navigate */}
+      {reasons.length > 0 && (
+        <div data-testid="why-reminder" className="space-y-3">
+          <div className="flex items-center gap-2 px-2">
             <span aria-hidden="true">❤️</span>
             <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary">
-              Why I'm Doing This
+              Why I'm Fighting For Freedom
             </div>
+            {reasons.length > 1 && (
+              <span className="ml-auto text-[10px] font-mono text-muted-foreground/60 tabular-nums">
+                {reasons.length} reasons · swipe →
+              </span>
+            )}
           </div>
-          <blockquote className="border-l-2 border-primary/60 pl-3">
-            <p className="text-foreground font-serif text-lg leading-snug whitespace-pre-wrap">
-              {whyReason}
-            </p>
-          </blockquote>
+          <div
+            className="flex overflow-x-auto pb-2 px-1 snap-x snap-mandatory hide-scrollbar gap-3"
+            data-testid="reasons-carousel"
+          >
+            {reasons.map((reason, idx) => (
+              <div
+                key={reason.id}
+                className="snap-center shrink-0 w-[88%] sm:w-[420px] bg-primary/5 border border-primary/30 rounded-2xl px-6 py-5"
+                data-testid={`reason-card-${idx}`}
+              >
+                <blockquote className="border-l-2 border-primary/60 pl-3 h-full flex items-center">
+                  <p className="text-foreground font-serif text-lg leading-snug whitespace-pre-wrap">
+                    {reason.text}
+                  </p>
+                </blockquote>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

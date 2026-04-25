@@ -8,6 +8,12 @@ import {
 } from "./firebase";
 import { useAuth } from "./auth-context";
 
+export type SyncedReason = {
+  id: string;
+  text: string;
+  createdAt: number;
+};
+
 type UserDoc = {
   startDate: string | null;
   urgeSessions: unknown[];
@@ -15,7 +21,9 @@ type UserDoc = {
   fortressItems: string[];
   appName: string;
   theme: "light" | "dark";
-  whyReason: string;
+  reasons: SyncedReason[];
+  // Legacy single-string field, retained on read so we can migrate older docs.
+  whyReason?: string;
   updatedAt: number;
 };
 
@@ -26,6 +34,7 @@ type Loaded = {
   fortressItems: string[];
   appName?: string;
   theme?: "light" | "dark";
+  reasons?: SyncedReason[];
   whyReason?: string;
 };
 
@@ -49,7 +58,7 @@ export function useFirestoreSync(args: {
   fortressItems: string[];
   appName: string;
   theme: "light" | "dark";
-  whyReason: string;
+  reasons: SyncedReason[];
   onRemoteLoad: (data: Loaded) => void;
 }) {
   const { user } = useAuth();
@@ -63,7 +72,7 @@ export function useFirestoreSync(args: {
   const serializeForCompare = (
     data: Pick<
       UserDoc,
-      "startDate" | "urgeSessions" | "journalEntries" | "fortressItems" | "appName" | "theme" | "whyReason"
+      "startDate" | "urgeSessions" | "journalEntries" | "fortressItems" | "appName" | "theme" | "reasons"
     >
   ) =>
     JSON.stringify({
@@ -73,10 +82,25 @@ export function useFirestoreSync(args: {
       fortressItems: data.fortressItems,
       appName: data.appName,
       theme: data.theme,
-      whyReason: data.whyReason,
+      reasons: data.reasons,
     });
 
   const applyRemote = (data: UserDoc) => {
+    // Migrate legacy single-string `whyReason` into a one-item reasons array
+    // when the new field hasn't been written yet.
+    const remoteReasons: SyncedReason[] =
+      Array.isArray(data.reasons) && data.reasons.length > 0
+        ? data.reasons
+        : data.whyReason && data.whyReason.trim()
+          ? [
+              {
+                id: crypto.randomUUID(),
+                text: data.whyReason.trim().slice(0, 250),
+                createdAt: Date.now(),
+              },
+            ]
+          : [];
+
     const loaded: Loaded = {
       startDate: data.startDate ?? null,
       urgeSessions: data.urgeSessions ?? [],
@@ -84,7 +108,7 @@ export function useFirestoreSync(args: {
       fortressItems: data.fortressItems ?? [],
       appName: data.appName,
       theme: data.theme,
-      whyReason: data.whyReason ?? "",
+      reasons: remoteReasons,
     };
     // Stamp lastSerialized BEFORE pushing into React state, so the push
     // effect that runs from the resulting state change sees a match and skips.
@@ -95,7 +119,7 @@ export function useFirestoreSync(args: {
       fortressItems: loaded.fortressItems,
       appName: loaded.appName ?? args.appName,
       theme: loaded.theme ?? args.theme,
-      whyReason: loaded.whyReason ?? args.whyReason,
+      reasons: loaded.reasons ?? args.reasons,
     });
     onRemoteLoadRef.current(loaded);
   };
@@ -121,7 +145,7 @@ export function useFirestoreSync(args: {
             fortressItems: args.fortressItems,
             appName: args.appName,
             theme: args.theme,
-            whyReason: args.whyReason,
+            reasons: args.reasons,
           });
         }
       } catch (e) {
@@ -164,7 +188,7 @@ export function useFirestoreSync(args: {
       fortressItems: args.fortressItems,
       appName: args.appName,
       theme: args.theme,
-      whyReason: args.whyReason,
+      reasons: args.reasons,
     });
     if (compareKey === lastSerialized.current) return;
     lastSerialized.current = compareKey;
@@ -176,7 +200,7 @@ export function useFirestoreSync(args: {
       fortressItems: args.fortressItems,
       appName: args.appName,
       theme: args.theme,
-      whyReason: args.whyReason,
+      reasons: args.reasons,
       updatedAt: Date.now(),
     };
     const ref = doc(db, "users", user.uid);
@@ -191,6 +215,6 @@ export function useFirestoreSync(args: {
     args.fortressItems,
     args.appName,
     args.theme,
-    args.whyReason,
+    args.reasons,
   ]);
 }

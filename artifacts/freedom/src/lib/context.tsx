@@ -13,6 +13,44 @@ export type JournalEntry = {
   tags: string[];
 };
 
+export type Reason = {
+  id: string;
+  text: string;
+  createdAt: number;
+};
+
+export const MAX_REASONS = 10;
+export const MAX_REASON_LENGTH = 250;
+
+function migrateReasons(legacyWhy: string | null, raw: string | null): Reason[] {
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((r: { id?: unknown; text?: unknown; createdAt?: unknown }) => ({
+            id: typeof r.id === "string" ? r.id : crypto.randomUUID(),
+            text: typeof r.text === "string" ? r.text.slice(0, MAX_REASON_LENGTH) : "",
+            createdAt: typeof r.createdAt === "number" ? r.createdAt : Date.now(),
+          }))
+          .filter((r) => r.text.trim().length > 0)
+          .slice(0, MAX_REASONS);
+      }
+    } catch {
+      /* fall through to legacy migration */
+    }
+  }
+  const trimmed = (legacyWhy || "").trim();
+  if (!trimmed) return [];
+  return [
+    {
+      id: crypto.randomUUID(),
+      text: trimmed.slice(0, MAX_REASON_LENGTH),
+      createdAt: Date.now(),
+    },
+  ];
+}
+
 export type CommunityPost = {
   id: string;
   uid?: string;
@@ -37,8 +75,10 @@ export type FreedomContextType = {
   journalEntries: JournalEntry[];
   addJournalEntry: (entry: JournalEntry) => void;
   deleteJournalEntry: (id: string) => void;
-  whyReason: string;
-  setWhyReason: (reason: string) => void;
+  reasons: Reason[];
+  addReason: (text: string) => { ok: boolean; error?: string };
+  updateReason: (id: string, text: string) => { ok: boolean; error?: string };
+  deleteReason: (id: string) => void;
   fortressItems: string[];
   toggleFortressItem: (id: string) => void;
   isUrgeSurfing: boolean;
@@ -62,7 +102,12 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
   const [startDate, setStartDate] = useState<string | null>(() => localStorage.getItem("freedom_start"));
   const [urgeSessions, setUrgeSessions] = useState<UrgeSession[]>(() => JSON.parse(localStorage.getItem("freedom_urges") || "[]"));
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => JSON.parse(localStorage.getItem("freedom_journal") || "[]"));
-  const [whyReason, setWhyReasonState] = useState<string>(() => localStorage.getItem("freedom_why_reason") || "");
+  const [reasons, setReasons] = useState<Reason[]>(() =>
+    migrateReasons(
+      localStorage.getItem("freedom_why_reason"),
+      localStorage.getItem("freedom_reasons")
+    )
+  );
   const [fortressItems, setFortressItems] = useState<string[]>(() => JSON.parse(localStorage.getItem("freedom_fortress") || "[]"));
   const [isUrgeSurfing, setIsUrgeSurfing] = useState(false);
   const [appName, setAppNameState] = useState<string>(() => localStorage.getItem("freedom_app_name") || "Freedom");
@@ -91,7 +136,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     fortressItems,
     appName,
     theme,
-    whyReason,
+    reasons,
     onRemoteLoad: (remote) => {
       setStartDate(remote.startDate);
       setUrgeSessions(remote.urgeSessions as UrgeSession[]);
@@ -99,7 +144,12 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
       setFortressItems(remote.fortressItems);
       if (remote.appName) setAppNameState(remote.appName);
       if (remote.theme) setThemeState(remote.theme);
-      if (typeof remote.whyReason === "string") setWhyReasonState(remote.whyReason);
+      if (Array.isArray(remote.reasons)) {
+        setReasons(remote.reasons);
+      } else if (typeof remote.whyReason === "string" && remote.whyReason.trim()) {
+        // Legacy remote: migrate single string into one reason
+        setReasons(migrateReasons(remote.whyReason, null));
+      }
     },
   });
 
@@ -117,11 +167,45 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
   }, [journalEntries]);
 
   useEffect(() => {
-    localStorage.setItem("freedom_why_reason", whyReason);
-  }, [whyReason]);
+    localStorage.setItem("freedom_reasons", JSON.stringify(reasons));
+    // Keep legacy key cleared so we don't re-migrate on next load.
+    localStorage.removeItem("freedom_why_reason");
+  }, [reasons]);
 
-  const setWhyReason = useCallback((reason: string) => {
-    setWhyReasonState(reason.slice(0, 500));
+  const addReason = useCallback(
+    (text: string): { ok: boolean; error?: string } => {
+      const trimmed = text.trim().slice(0, MAX_REASON_LENGTH);
+      if (!trimmed) return { ok: false, error: "Reason can't be empty." };
+      let result: { ok: boolean; error?: string } = { ok: true };
+      setReasons((prev) => {
+        if (prev.length >= MAX_REASONS) {
+          result = { ok: false, error: `You can only have ${MAX_REASONS} reasons.` };
+          return prev;
+        }
+        return [
+          ...prev,
+          { id: crypto.randomUUID(), text: trimmed, createdAt: Date.now() },
+        ];
+      });
+      return result;
+    },
+    []
+  );
+
+  const updateReason = useCallback(
+    (id: string, text: string): { ok: boolean; error?: string } => {
+      const trimmed = text.trim().slice(0, MAX_REASON_LENGTH);
+      if (!trimmed) return { ok: false, error: "Reason can't be empty." };
+      setReasons((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, text: trimmed } : r))
+      );
+      return { ok: true };
+    },
+    []
+  );
+
+  const deleteReason = useCallback((id: string) => {
+    setReasons((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
   useEffect(() => {
@@ -164,7 +248,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     setUrgeSessions([]);
     setJournalEntries([]);
     setFortressItems([]);
-    setWhyReasonState("");
+    setReasons([]);
   }, []);
 
   const setAppName = useCallback((name: string): { ok: boolean; error?: string } => {
@@ -251,8 +335,10 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
         journalEntries,
         addJournalEntry,
         deleteJournalEntry,
-        whyReason,
-        setWhyReason,
+        reasons,
+        addReason,
+        updateReason,
+        deleteReason,
         fortressItems,
         toggleFortressItem,
         isUrgeSurfing,

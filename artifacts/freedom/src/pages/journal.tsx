@@ -1,31 +1,135 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Trash2, Heart, Pencil, Check, X } from "lucide-react";
-import { useFreedom } from "@/lib/context";
+import { Trash2, Heart, Pencil, Check, X, Plus } from "lucide-react";
+import { useFreedom, MAX_REASONS, MAX_REASON_LENGTH, type Reason } from "@/lib/context";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-function WhyImDoingThisCard() {
-  const { whyReason, setWhyReason } = useFreedom();
+function ReasonItem({
+  reason,
+  onUpdate,
+  onDelete,
+}: {
+  reason: Reason;
+  onUpdate: (id: string, text: string) => { ok: boolean; error?: string };
+  onDelete: (id: string) => void;
+}) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(whyReason);
-
-  useEffect(() => {
-    if (!editing) setDraft(whyReason);
-  }, [whyReason, editing]);
-
-  const isEmpty = !whyReason.trim();
-  const showEditor = editing || isEmpty;
+  const [draft, setDraft] = useState(reason.text);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = () => {
-    setWhyReason(draft.trim());
+    const result = onUpdate(reason.id, draft);
+    if (!result.ok) {
+      setError(result.error || "Could not save.");
+      return;
+    }
+    setError(null);
     setEditing(false);
   };
 
   const handleCancel = () => {
-    setDraft(whyReason);
+    setDraft(reason.text);
+    setError(null);
     setEditing(false);
+  };
+
+  return (
+    <div
+      className="bg-background border border-border rounded-md p-3 space-y-2"
+      data-testid={`reason-${reason.id}`}
+    >
+      {editing ? (
+        <>
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value.slice(0, MAX_REASON_LENGTH))}
+            className="bg-background border-border resize-none h-20 text-foreground text-sm"
+            data-testid={`reason-${reason.id}-input`}
+          />
+          {error && <p className="text-[11px] font-mono text-destructive">{error}</p>}
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono text-muted-foreground/60">
+              {draft.length}/{MAX_REASON_LENGTH}
+            </span>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleCancel}
+                className="font-mono uppercase tracking-widest text-[10px] h-7 px-2"
+              >
+                <X size={12} className="mr-1" /> Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={!draft.trim()}
+                className="font-mono uppercase tracking-widest text-[10px] h-7 px-2"
+                data-testid={`reason-${reason.id}-save`}
+              >
+                <Check size={12} className="mr-1" /> Save
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-start gap-2">
+          <p className="flex-1 text-sm text-foreground font-serif leading-snug whitespace-pre-wrap">
+            {reason.text}
+          </p>
+          <div className="flex flex-col gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => { setDraft(reason.text); setEditing(true); }}
+              className="text-muted-foreground/70 hover:text-foreground p-1 -m-1"
+              aria-label="Edit reason"
+              data-testid={`reason-${reason.id}-edit`}
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(reason.id)}
+              className="text-muted-foreground/50 hover:text-destructive p-1 -m-1"
+              aria-label="Delete reason"
+              data-testid={`reason-${reason.id}-delete`}
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WhyImDoingThisCard() {
+  const { reasons, addReason, updateReason, deleteReason } = useFreedom();
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const isEmpty = reasons.length === 0;
+  const atMax = reasons.length >= MAX_REASONS;
+  const showAddForm = adding || isEmpty;
+
+  const handleAdd = () => {
+    const result = addReason(draft);
+    if (!result.ok) {
+      setError(result.error || "Could not add reason.");
+      return;
+    }
+    setDraft("");
+    setError(null);
+    setAdding(false);
+  };
+
+  const handleCancelAdd = () => {
+    setDraft("");
+    setError(null);
+    setAdding(false);
   };
 
   return (
@@ -37,69 +141,89 @@ function WhyImDoingThisCard() {
         <div className="flex items-center gap-2">
           <Heart size={14} className="text-primary" />
           <h2 className="text-xs font-mono uppercase tracking-widest text-foreground">
-            Why I'm Doing This
+            Why I'm Fighting For Freedom
           </h2>
         </div>
-        {!showEditor && (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-muted-foreground/70 hover:text-foreground p-1 -m-1"
-            aria-label="Edit reason"
-            data-testid="why-edit"
-          >
-            <Pencil size={14} />
-          </button>
-        )}
+        <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums">
+          {reasons.length}/{MAX_REASONS}
+        </span>
       </div>
 
-      {showEditor ? (
+      {!isEmpty && (
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          Add up to {MAX_REASONS} reasons. They'll appear as a swipeable
+          carousel on your home screen.
+        </p>
+      )}
+
+      {reasons.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Write the real reason — the one you'll need to remember at 2 AM. It
-            shows up on your home screen as a reminder.
-          </p>
+          {reasons.map((r) => (
+            <ReasonItem
+              key={r.id}
+              reason={r}
+              onUpdate={updateReason}
+              onDelete={deleteReason}
+            />
+          ))}
+        </div>
+      )}
+
+      {showAddForm ? (
+        <div className="space-y-2 border-t border-border/50 pt-3">
+          {isEmpty && (
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Write the real reasons — the ones you'll need to remember at 2 AM.
+              They'll show up on your home screen as a swipeable carousel.
+            </p>
+          )}
           <Textarea
             value={draft}
-            onChange={(e) => setDraft(e.target.value.slice(0, 500))}
-            placeholder="For my future self. For the kids I want to have one day. Because I'm sick of being a slave to this…"
-            className="bg-background border-border resize-none h-24 text-foreground placeholder:text-muted-foreground/50"
-            data-testid="why-input"
+            onChange={(e) => setDraft(e.target.value.slice(0, MAX_REASON_LENGTH))}
+            placeholder="For my future self. For the kids I want to have one day…"
+            className="bg-background border-border resize-none h-20 text-foreground placeholder:text-muted-foreground/50 text-sm"
+            data-testid="reason-new-input"
           />
+          {error && <p className="text-[11px] font-mono text-destructive">{error}</p>}
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono text-muted-foreground/60">
-              {draft.length}/500
+              {draft.length}/{MAX_REASON_LENGTH}
             </span>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               {!isEmpty && (
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={handleCancel}
-                  className="font-mono uppercase tracking-widest text-[10px]"
-                  data-testid="why-cancel"
+                  onClick={handleCancelAdd}
+                  className="font-mono uppercase tracking-widest text-[10px] h-7 px-2"
                 >
                   <X size={12} className="mr-1" /> Cancel
                 </Button>
               )}
               <Button
                 size="sm"
-                onClick={handleSave}
+                onClick={handleAdd}
                 disabled={!draft.trim()}
-                className="font-mono uppercase tracking-widest text-[10px]"
-                data-testid="why-save"
+                className="font-mono uppercase tracking-widest text-[10px] h-7 px-2"
+                data-testid="reason-new-save"
               >
-                <Check size={12} className="mr-1" /> Save
+                <Check size={12} className="mr-1" /> Add
               </Button>
             </div>
           </div>
         </div>
       ) : (
-        <blockquote className="border-l-2 border-primary/60 pl-3 py-1">
-          <p className="text-foreground font-serif text-base leading-relaxed whitespace-pre-wrap">
-            {whyReason}
-          </p>
-        </blockquote>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setAdding(true)}
+          disabled={atMax}
+          className="w-full font-mono uppercase tracking-widest text-[10px] border border-dashed border-border/60 h-8"
+          data-testid="reason-add"
+        >
+          <Plus size={12} className="mr-1" />
+          {atMax ? `Max ${MAX_REASONS} reasons reached` : "Add another reason"}
+        </Button>
       )}
     </div>
   );

@@ -593,7 +593,9 @@ function PostCard({
   const remoteReactions = useMyPostReaction(post.id, isLocalPost ? null : myUid);
   const localReacted = userReactions[post.id] || {};
   const userReacted: Record<string, boolean> = isLocalPost
-    ? localReacted
+    ? Object.fromEntries(
+        Object.entries(localReacted).map(([emoji, count]) => [emoji, !!count])
+      )
     : Object.fromEntries(Array.from(remoteReactions).map((e) => [e, true]));
   const [reactionPending, setReactionPending] = useState(false);
   const [editing, setEditing] = useState(false);

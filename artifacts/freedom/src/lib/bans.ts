@@ -7,6 +7,9 @@ import {
   deleteDoc,
   onSnapshot,
   serverTimestamp,
+  collection,
+  query,
+  orderBy,
 } from "./firebase";
 import { useAuth } from "./auth-context";
 
@@ -167,6 +170,44 @@ export function useSuspendUser() {
     },
     [user]
   );
+}
+
+/**
+ * Subscribe to ALL ban/suspension records (admin view). Sorted by creation
+ * date descending. Single-field orderBy keeps us off composite indexes.
+ */
+export function useAllBans() {
+  const [bans, setBans] = useState<BanRecord[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!db) {
+      setLoading(false);
+      return;
+    }
+    const q = query(collection(db, BANS_COLLECTION), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list: BanRecord[] = [];
+        snap.forEach((d) => {
+          const parsed = parseBan(d.id, d.data() as Record<string, unknown>);
+          if (parsed) list.push(parsed);
+        });
+        setBans(list);
+        setLoading(false);
+      },
+      (err) => {
+        console.warn("[freedom] all-bans subscription failed", err);
+        setError(err.message || "Could not load restricted users.");
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, []);
+
+  return { bans, loading, error };
 }
 
 /** Lift any ban/suspension on a user. */

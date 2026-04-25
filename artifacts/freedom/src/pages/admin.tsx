@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { formatDistanceToNow, format } from "date-fns";
 import {
@@ -9,6 +9,9 @@ import {
   ArrowLeft,
   Clock,
   Ban,
+  Users,
+  MessageSquare,
+  RotateCcw,
 } from "lucide-react";
 import {
   useAdminReports,
@@ -18,9 +21,17 @@ import {
   type ReportStatus,
 } from "@/lib/community-store";
 import { useIsAdmin } from "@/lib/admin";
-import { useSuspendUser, useBanUser } from "@/lib/bans";
+import {
+  useSuspendUser,
+  useBanUser,
+  useAllBans,
+  useLiftBan,
+  type BanRecord,
+} from "@/lib/bans";
+import { useAllAppeals, type AppealRecord } from "@/lib/appeals";
 import { useSeedTestPosts, useSeedTestReports } from "@/lib/test-seed";
 import { useAuth } from "@/lib/auth-context";
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -71,6 +82,7 @@ function SuspendDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const suspend = useSuspendUser();
+  const deleteContent = useDeleteReportedContent();
   const [days, setDays] = useState<number>(7);
   const [customDays, setCustomDays] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +109,18 @@ function SuspendDialog({
         username: report.targetUsername,
         days: effectiveDays,
         reason: `Reported ${report.targetType}: ${report.reason || "—"}`,
+      });
+      // Also remove the offending content so it doesn't keep harming the feed.
+      try {
+        await deleteContent(report);
+      } catch (delErr) {
+        console.warn("[freedom] suspend: content delete failed", delErr);
+      }
+      toast({
+        title: "User suspended",
+        description: `@${report.targetUsername || "user"} suspended for ${effectiveDays} day${
+          effectiveDays === 1 ? "" : "s"
+        }. Reported ${report.targetType} removed.`,
       });
       onOpenChange(false);
       setCustomDays("");
@@ -214,6 +238,7 @@ function BanDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const banUser = useBanUser();
+  const deleteContent = useDeleteReportedContent();
   const [confirmText, setConfirmText] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -230,6 +255,17 @@ function BanDialog({
         uid: report.targetUid!,
         username: report.targetUsername,
         reason: reason || `Reported ${report.targetType}: ${report.reason || "—"}`,
+      });
+      // Also remove the offending content as part of the ban action.
+      try {
+        await deleteContent(report);
+      } catch (delErr) {
+        console.warn("[freedom] ban: content delete failed", delErr);
+      }
+      toast({
+        title: "User banned",
+        description: `@${report.targetUsername || "user"} permanently banned. Reported ${report.targetType} removed.`,
+        variant: "destructive",
       });
       onOpenChange(false);
       setConfirmText("");
@@ -465,10 +501,18 @@ function ReportCard({ report }: { report: ReportRecord }) {
   );
 }
 
+type AdminView = "reports" | "restricted";
+
+const VIEW_TABS: { id: AdminView; label: string; icon: typeof MessageSquare }[] = [
+  { id: "reports", label: "Reports", icon: MessageSquare },
+  { id: "restricted", label: "Restricted Users", icon: Users },
+];
+
 export default function Admin() {
   const isAdmin = useIsAdmin();
   const { user, loading } = useAuth();
   const [, navigate] = useLocation();
+  const [view, setView] = useState<AdminView>("reports");
   const [statusFilter, setStatusFilter] = useState<ReportStatus | "all">("open");
   const { reports, loading: loadingReports, error } = useAdminReports(statusFilter);
   const seedPosts = useSeedTestPosts();
@@ -529,11 +573,33 @@ export default function Admin() {
           <ArrowLeft size={18} />
         </button>
         <div className="space-y-1">
-          <h1 className="text-2xl font-serif text-foreground">Admin · Reports</h1>
+          <h1 className="text-2xl font-serif text-foreground">Admin</h1>
           <p className="text-xs text-muted-foreground">
-            Review reported posts and comments. Actions are logged in Firestore.
+            Review reports and manage restricted users.
           </p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {VIEW_TABS.map((tab) => {
+          const active = view === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setView(tab.id)}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg font-mono text-[11px] uppercase tracking-widest border transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:bg-muted/40"
+              }`}
+              data-testid={`admin-view-${tab.id}`}
+            >
+              <Icon size={14} />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="bg-card border border-border rounded-lg p-3 space-y-2">
@@ -560,46 +626,317 @@ export default function Admin() {
         )}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
-        {STATUS_TABS.map((tab) => {
-          const active = statusFilter === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`shrink-0 px-3 py-1.5 rounded-full font-mono text-[10px] uppercase tracking-widest border transition-colors ${
-                active
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
-              }`}
-              data-testid={`admin-tab-${tab.id}`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      {view === "reports" ? (
+        <>
+          <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+            {STATUS_TABS.map((tab) => {
+              const active = statusFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full font-mono text-[10px] uppercase tracking-widest border transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                  }`}
+                  data-testid={`admin-tab-${tab.id}`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {error && (
+            <p className="text-xs font-mono text-destructive">
+              Failed to load reports: {error}
+            </p>
+          )}
+
+          {loadingReports ? (
+            <div className="text-center py-12 text-sm font-mono text-muted-foreground">
+              Loading reports…
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="text-center py-12 text-sm font-mono text-muted-foreground">
+              No {statusFilter === "all" ? "" : statusFilter} reports.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {reports.map((r) => (
+                <ReportCard key={r.id} report={r} />
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <RestrictedUsersPanel />
+      )}
+    </div>
+  );
+}
+
+function daysLeft(untilIso: string | null): number {
+  if (!untilIso) return 0;
+  const ms = new Date(untilIso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / 86_400_000));
+}
+
+function RestrictedUserCard({
+  ban,
+  appeal,
+}: {
+  ban: BanRecord;
+  appeal: AppealRecord | undefined;
+}) {
+  const liftBan = useLiftBan();
+  const [busy, setBusy] = useState(false);
+  const isBan = ban.kind === "ban";
+  const left = daysLeft(ban.until);
+  const expired = ban.kind === "suspension" && left === 0;
+
+  const handleLift = async () => {
+    if (!window.confirm(`Lift ${isBan ? "ban" : "suspension"} for @${ban.username || "user"}?`)) return;
+    setBusy(true);
+    try {
+      await liftBan(ban.uid);
+      toast({
+        title: isBan ? "Ban lifted" : "Suspension lifted",
+        description: `@${ban.username || "user"} can post again.`,
+      });
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      toast({
+        title: "Could not lift",
+        description: err.message || "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className={`bg-card border rounded-lg p-4 space-y-3 ${
+        isBan ? "border-destructive/30" : "border-border"
+      }`}
+      data-testid={`restricted-${ban.uid}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {isBan ? (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-widest border bg-destructive/15 text-destructive border-destructive/30">
+                <Ban size={10} className="inline mr-1 -mt-0.5" />
+                Banned
+              </span>
+            ) : expired ? (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-widest border bg-muted text-muted-foreground border-border">
+                Expired
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-widest border bg-warning/15 text-warning border-warning/30">
+                <Clock size={10} className="inline mr-1 -mt-0.5" />
+                {left} day{left === 1 ? "" : "s"} left
+              </span>
+            )}
+            {appeal && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-widest border bg-stat/15 text-stat border-stat/30">
+                Appeal
+              </span>
+            )}
+          </div>
+          <div className="text-sm font-medium text-foreground break-all">
+            @{ban.username || "(unknown)"}
+          </div>
+          <div className="text-[10px] font-mono text-muted-foreground/80 break-all">
+            uid: {ban.uid}
+          </div>
+        </div>
       </div>
 
-      {error && (
-        <p className="text-xs font-mono text-destructive">
-          Failed to load reports: {error}
-        </p>
+      <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+        {ban.createdAt && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Issued
+            </div>
+            <div className="text-foreground/90">
+              {format(new Date(ban.createdAt), "MMM d, h:mm a")}
+            </div>
+          </div>
+        )}
+        {ban.until && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {expired ? "Lifted (auto)" : "Lifts at"}
+            </div>
+            <div className="text-foreground/90">
+              {format(new Date(ban.until), "MMM d, h:mm a")}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {ban.reason && (
+        <div className="rounded-md border border-border/60 bg-background/40 p-2">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Reason
+          </div>
+          <p className="text-xs text-foreground/90 mt-0.5 break-words">{ban.reason}</p>
+        </div>
       )}
 
-      {loadingReports ? (
-        <div className="text-center py-12 text-sm font-mono text-muted-foreground">
-          Loading reports…
+      {appeal && (
+        <div className="rounded-md border border-stat/30 bg-stat/5 p-2 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-stat">
+              Appeal · {appeal.status}
+            </div>
+            {appeal.createdAt && (
+              <div className="text-[10px] font-mono text-muted-foreground">
+                {formatDistanceToNow(new Date(appeal.createdAt), { addSuffix: true })}
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-foreground/90 italic whitespace-pre-wrap break-words">
+            "{appeal.message}"
+          </p>
         </div>
-      ) : reports.length === 0 ? (
-        <div className="text-center py-12 text-sm font-mono text-muted-foreground">
-          No {statusFilter === "all" ? "" : statusFilter} reports.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {reports.map((r) => (
-            <ReportCard key={r.id} report={r} />
+      )}
+
+      <div className="flex gap-2 pt-1">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleLift}
+          disabled={busy}
+          className="font-mono uppercase tracking-widest text-[10px]"
+          data-testid={`lift-${ban.uid}`}
+        >
+          <RotateCcw size={12} className="mr-1" />
+          {busy ? "Lifting…" : isBan ? "Lift ban" : "End suspension"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function RestrictedUsersPanel() {
+  const { bans, loading, error } = useAllBans();
+  const { latestByUid: appealsByUid } = useAllAppeals();
+
+  const { activeSuspensions, banned, expired } = useMemo(() => {
+    const now = Date.now();
+    const activeSuspensions: BanRecord[] = [];
+    const banned: BanRecord[] = [];
+    const expired: BanRecord[] = [];
+    for (const b of bans) {
+      if (b.kind === "ban") {
+        banned.push(b);
+      } else if (b.until && new Date(b.until).getTime() > now) {
+        activeSuspensions.push(b);
+      } else {
+        expired.push(b);
+      }
+    }
+    return { activeSuspensions, banned, expired };
+  }, [bans]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-12 text-sm font-mono text-muted-foreground">
+        Loading restricted users…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="text-xs font-mono text-destructive">Failed to load: {error}</p>
+    );
+  }
+
+  if (bans.length === 0) {
+    return (
+      <div className="text-center py-12 text-sm font-mono text-muted-foreground">
+        No restricted users.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Section
+        title="Currently suspended"
+        count={activeSuspensions.length}
+        accent="warning"
+      >
+        {activeSuspensions.map((b) => (
+          <RestrictedUserCard
+            key={b.uid}
+            ban={b}
+            appeal={appealsByUid.get(b.uid)}
+          />
+        ))}
+      </Section>
+
+      <Section title="Permanently banned" count={banned.length} accent="destructive">
+        {banned.map((b) => (
+          <RestrictedUserCard
+            key={b.uid}
+            ban={b}
+            appeal={appealsByUid.get(b.uid)}
+          />
+        ))}
+      </Section>
+
+      {expired.length > 0 && (
+        <Section title="Expired suspensions" count={expired.length} accent="muted">
+          {expired.map((b) => (
+            <RestrictedUserCard
+              key={b.uid}
+              ban={b}
+              appeal={appealsByUid.get(b.uid)}
+            />
           ))}
-        </div>
+        </Section>
+      )}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  count,
+  accent,
+  children,
+}: {
+  title: string;
+  count: number;
+  accent: "warning" | "destructive" | "muted";
+  children: React.ReactNode;
+}) {
+  const accentClass =
+    accent === "destructive"
+      ? "text-destructive"
+      : accent === "warning"
+      ? "text-warning"
+      : "text-muted-foreground";
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h2 className={`font-mono text-[11px] uppercase tracking-widest ${accentClass}`}>
+          {title}
+        </h2>
+        <span className="text-[10px] font-mono text-muted-foreground">{count}</span>
+      </div>
+      {count === 0 ? (
+        <p className="text-xs font-mono text-muted-foreground/70 px-1">— none —</p>
+      ) : (
+        <div className="space-y-3">{children}</div>
       )}
     </div>
   );

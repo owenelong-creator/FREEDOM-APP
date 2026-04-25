@@ -15,6 +15,7 @@ type UserDoc = {
   fortressItems: string[];
   appName: string;
   theme: "light" | "dark";
+  whyReason: string;
   updatedAt: number;
 };
 
@@ -25,6 +26,7 @@ type Loaded = {
   fortressItems: string[];
   appName?: string;
   theme?: "light" | "dark";
+  whyReason?: string;
 };
 
 /**
@@ -47,6 +49,7 @@ export function useFirestoreSync(args: {
   fortressItems: string[];
   appName: string;
   theme: "light" | "dark";
+  whyReason: string;
   onRemoteLoad: (data: Loaded) => void;
 }) {
   const { user } = useAuth();
@@ -60,7 +63,7 @@ export function useFirestoreSync(args: {
   const serializeForCompare = (
     data: Pick<
       UserDoc,
-      "startDate" | "urgeSessions" | "journalEntries" | "fortressItems" | "appName" | "theme"
+      "startDate" | "urgeSessions" | "journalEntries" | "fortressItems" | "appName" | "theme" | "whyReason"
     >
   ) =>
     JSON.stringify({
@@ -70,6 +73,7 @@ export function useFirestoreSync(args: {
       fortressItems: data.fortressItems,
       appName: data.appName,
       theme: data.theme,
+      whyReason: data.whyReason,
     });
 
   const applyRemote = (data: UserDoc) => {
@@ -80,6 +84,7 @@ export function useFirestoreSync(args: {
       fortressItems: data.fortressItems ?? [],
       appName: data.appName,
       theme: data.theme,
+      whyReason: data.whyReason ?? "",
     };
     // Stamp lastSerialized BEFORE pushing into React state, so the push
     // effect that runs from the resulting state change sees a match and skips.
@@ -90,6 +95,7 @@ export function useFirestoreSync(args: {
       fortressItems: loaded.fortressItems,
       appName: loaded.appName ?? args.appName,
       theme: loaded.theme ?? args.theme,
+      whyReason: loaded.whyReason ?? args.whyReason,
     });
     onRemoteLoadRef.current(loaded);
   };
@@ -115,6 +121,7 @@ export function useFirestoreSync(args: {
             fortressItems: args.fortressItems,
             appName: args.appName,
             theme: args.theme,
+            whyReason: args.whyReason,
           });
         }
       } catch (e) {
@@ -157,6 +164,7 @@ export function useFirestoreSync(args: {
       fortressItems: args.fortressItems,
       appName: args.appName,
       theme: args.theme,
+      whyReason: args.whyReason,
     });
     if (compareKey === lastSerialized.current) return;
     lastSerialized.current = compareKey;
@@ -168,6 +176,7 @@ export function useFirestoreSync(args: {
       fortressItems: args.fortressItems,
       appName: args.appName,
       theme: args.theme,
+      whyReason: args.whyReason,
       updatedAt: Date.now(),
     };
     const ref = doc(db, "users", user.uid);
@@ -182,5 +191,6 @@ export function useFirestoreSync(args: {
     args.fortressItems,
     args.appName,
     args.theme,
+    args.whyReason,
   ]);
 }

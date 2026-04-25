@@ -67,7 +67,7 @@ function HelpResourcesCard() {
   );
 }
 
-const DURATION_SECONDS = 300; // 5 minutes
+const DURATION_SECONDS = 180; // 3 minutes
 
 const QUOTES = [
   "Is 5 minutes of browsing worth losing your streak?",

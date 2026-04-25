@@ -119,7 +119,7 @@ const MILESTONES = [
 ];
 
 export default function Home() {
-  const { startDate, setStartDate, urgeSessions, resetAll } = useFreedom();
+  const { startDate, setStartDate, urgeSessions, resetAll, whyReason } = useFreedom();
   const [now, setNow] = useState(new Date());
   
   const [resetStep, setResetStep] = useState(1);
@@ -254,6 +254,26 @@ export default function Home() {
           </div>
         </motion.div>
       </div>
+
+      {/* Personal "why" reminder — set in the Journal page */}
+      {whyReason.trim() && (
+        <div
+          className="bg-primary/5 border border-primary/30 rounded-2xl px-6 py-5 mx-1"
+          data-testid="why-reminder"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <span aria-hidden="true">❤️</span>
+            <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary">
+              Why I'm Doing This
+            </div>
+          </div>
+          <blockquote className="border-l-2 border-primary/60 pl-3">
+            <p className="text-foreground font-serif text-lg leading-snug whitespace-pre-wrap">
+              {whyReason}
+            </p>
+          </blockquote>
+        </div>
+      )}
 
       {/* Daily motivational quote */}
       <div className="bg-card border border-card-border rounded-2xl px-6 py-5 mx-1">

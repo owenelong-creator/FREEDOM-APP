@@ -1,10 +1,109 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { Trash2, Heart, Pencil, Check, X } from "lucide-react";
 import { useFreedom } from "@/lib/context";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+function WhyImDoingThisCard() {
+  const { whyReason, setWhyReason } = useFreedom();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(whyReason);
+
+  useEffect(() => {
+    if (!editing) setDraft(whyReason);
+  }, [whyReason, editing]);
+
+  const isEmpty = !whyReason.trim();
+  const showEditor = editing || isEmpty;
+
+  const handleSave = () => {
+    setWhyReason(draft.trim());
+    setEditing(false);
+  };
+
+  const handleCancel = () => {
+    setDraft(whyReason);
+    setEditing(false);
+  };
+
+  return (
+    <div
+      className="bg-card border border-border rounded-lg p-4 space-y-3"
+      data-testid="why-card"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Heart size={14} className="text-primary" />
+          <h2 className="text-xs font-mono uppercase tracking-widest text-foreground">
+            Why I'm Doing This
+          </h2>
+        </div>
+        {!showEditor && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="text-muted-foreground/70 hover:text-foreground p-1 -m-1"
+            aria-label="Edit reason"
+            data-testid="why-edit"
+          >
+            <Pencil size={14} />
+          </button>
+        )}
+      </div>
+
+      {showEditor ? (
+        <div className="space-y-2">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Write the real reason — the one you'll need to remember at 2 AM. It
+            shows up on your home screen as a reminder.
+          </p>
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value.slice(0, 500))}
+            placeholder="For my future self. For the kids I want to have one day. Because I'm sick of being a slave to this…"
+            className="bg-background border-border resize-none h-24 text-foreground placeholder:text-muted-foreground/50"
+            data-testid="why-input"
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono text-muted-foreground/60">
+              {draft.length}/500
+            </span>
+            <div className="flex gap-2">
+              {!isEmpty && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCancel}
+                  className="font-mono uppercase tracking-widest text-[10px]"
+                  data-testid="why-cancel"
+                >
+                  <X size={12} className="mr-1" /> Cancel
+                </Button>
+              )}
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={!draft.trim()}
+                className="font-mono uppercase tracking-widest text-[10px]"
+                data-testid="why-save"
+              >
+                <Check size={12} className="mr-1" /> Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <blockquote className="border-l-2 border-primary/60 pl-3 py-1">
+          <p className="text-foreground font-serif text-base leading-relaxed whitespace-pre-wrap">
+            {whyReason}
+          </p>
+        </blockquote>
+      )}
+    </div>
+  );
+}
 
 const COMMON_TAGS = [
   "bored", "lonely", "tired", "saw something", 
@@ -65,6 +164,8 @@ export default function Journal() {
         <h1 className="text-2xl font-serif text-foreground">Trigger Journal</h1>
         <p className="text-muted-foreground text-sm">Document your urges to identify patterns.</p>
       </div>
+
+      <WhyImDoingThisCard />
 
       <div className="bg-card border border-border rounded-lg p-4 space-y-4">
         <Textarea 

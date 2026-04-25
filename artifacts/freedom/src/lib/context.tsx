@@ -37,6 +37,8 @@ export type FreedomContextType = {
   journalEntries: JournalEntry[];
   addJournalEntry: (entry: JournalEntry) => void;
   deleteJournalEntry: (id: string) => void;
+  whyReason: string;
+  setWhyReason: (reason: string) => void;
   fortressItems: string[];
   toggleFortressItem: (id: string) => void;
   isUrgeSurfing: boolean;
@@ -60,6 +62,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
   const [startDate, setStartDate] = useState<string | null>(() => localStorage.getItem("freedom_start"));
   const [urgeSessions, setUrgeSessions] = useState<UrgeSession[]>(() => JSON.parse(localStorage.getItem("freedom_urges") || "[]"));
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => JSON.parse(localStorage.getItem("freedom_journal") || "[]"));
+  const [whyReason, setWhyReasonState] = useState<string>(() => localStorage.getItem("freedom_why_reason") || "");
   const [fortressItems, setFortressItems] = useState<string[]>(() => JSON.parse(localStorage.getItem("freedom_fortress") || "[]"));
   const [isUrgeSurfing, setIsUrgeSurfing] = useState(false);
   const [appName, setAppNameState] = useState<string>(() => localStorage.getItem("freedom_app_name") || "Freedom");
@@ -88,6 +91,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     fortressItems,
     appName,
     theme,
+    whyReason,
     onRemoteLoad: (remote) => {
       setStartDate(remote.startDate);
       setUrgeSessions(remote.urgeSessions as UrgeSession[]);
@@ -95,6 +99,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
       setFortressItems(remote.fortressItems);
       if (remote.appName) setAppNameState(remote.appName);
       if (remote.theme) setThemeState(remote.theme);
+      if (typeof remote.whyReason === "string") setWhyReasonState(remote.whyReason);
     },
   });
 
@@ -110,6 +115,14 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem("freedom_journal", JSON.stringify(journalEntries));
   }, [journalEntries]);
+
+  useEffect(() => {
+    localStorage.setItem("freedom_why_reason", whyReason);
+  }, [whyReason]);
+
+  const setWhyReason = useCallback((reason: string) => {
+    setWhyReasonState(reason.slice(0, 500));
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("freedom_fortress", JSON.stringify(fortressItems));
@@ -151,6 +164,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     setUrgeSessions([]);
     setJournalEntries([]);
     setFortressItems([]);
+    setWhyReasonState("");
   }, []);
 
   const setAppName = useCallback((name: string): { ok: boolean; error?: string } => {
@@ -237,6 +251,8 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
         journalEntries,
         addJournalEntry,
         deleteJournalEntry,
+        whyReason,
+        setWhyReason,
         fortressItems,
         toggleFortressItem,
         isUrgeSurfing,

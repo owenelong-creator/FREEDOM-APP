@@ -59,13 +59,16 @@ export default function WelcomeModal() {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3 text-sm text-muted-foreground leading-relaxed">
-          <p>
-            You just took the hardest step — showing up. Your streak starts the
-            moment you set your start date.
+        <div className="space-y-4 text-sm text-foreground/90 leading-relaxed">
+          <p className="font-serif text-base text-foreground">
+            You're taking a brave step.
           </p>
-          <p className="text-xs font-mono uppercase tracking-widest text-primary/80">
-            One day at a time. You're not alone.
+          <p>
+            One day at a time —{" "}
+            <span className="text-foreground font-medium">you've got this.</span>
+          </p>
+          <p className="text-xs font-mono uppercase tracking-widest text-primary/80 pt-1">
+            We're all in this together
           </p>
         </div>
 

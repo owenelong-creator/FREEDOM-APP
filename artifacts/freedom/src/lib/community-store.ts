@@ -12,6 +12,7 @@ import {
   deleteDoc,
   serverTimestamp,
   increment,
+  runTransaction,
   isFirebaseConfigured,
 } from "./firebase";
 import { useAuth } from "./auth-context";
@@ -197,17 +198,84 @@ export function useDeleteCommunityPost() {
   }, []);
 }
 
-export function useToggleCommunityReaction() {
-  return useCallback(async (postId: string, emoji: string, currentlyLiked: boolean) => {
-    if (!db || postId.startsWith("local-")) return;
-    try {
-      const ref = doc(db, POSTS_COLLECTION, postId);
-      const fieldPath = `reactions.${emoji}`;
-      await updateDoc(ref, { [fieldPath]: increment(currentlyLiked ? -1 : 1) });
-    } catch (e) {
-      console.warn("[freedom] reaction sync failed (kept locally)", e);
+/**
+ * Subscribe to the current user's reactions on a single post. The reactor
+ * doc lives at `posts/{postId}/reactors/{uid}` and is the *source of truth*
+ * for whether the user has already reacted — independent of local state,
+ * URL, or device. Returns the set of emojis the user has reacted with.
+ */
+export function useMyPostReaction(postId: string, uid?: string | null) {
+  const [emojis, setEmojis] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!db || !uid || !postId || postId.startsWith("local-")) {
+      setEmojis(new Set());
+      return;
     }
-  }, []);
+    const ref = doc(db, POSTS_COLLECTION, postId, "reactors", uid);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const data = snap.data() as { emojis?: string[] } | undefined;
+        setEmojis(new Set(Array.isArray(data?.emojis) ? data.emojis : []));
+      },
+      (err) => {
+        console.warn("[freedom] reactor doc subscription failed", err);
+      }
+    );
+    return unsub;
+  }, [postId, uid]);
+
+  return emojis;
+}
+
+/**
+ * Toggle the current user's reaction on a post.
+ *
+ * Uses a Firestore transaction over the post doc and the per-user reactor
+ * doc (`posts/{postId}/reactors/{uid}`) so that the count and the user's
+ * reaction list always stay in sync. The reactor doc is the source of
+ * truth for whether the user has already reacted, so refreshing the page,
+ * clearing local state, or opening the post via a new link can never
+ * inflate the count — a second tap simply removes the reaction.
+ */
+export function useToggleCommunityReaction() {
+  const { user } = useAuth();
+  return useCallback(
+    async (postId: string, emoji: string) => {
+      if (!db || !user || postId.startsWith("local-")) return;
+      const postRef = doc(db, POSTS_COLLECTION, postId);
+      const reactorRef = doc(db, POSTS_COLLECTION, postId, "reactors", user.uid);
+      try {
+        await runTransaction(db, async (tx) => {
+          const reactorSnap = await tx.get(reactorRef);
+          const current = (reactorSnap.exists()
+            ? ((reactorSnap.data() as { emojis?: string[] }).emojis ?? [])
+            : []) as string[];
+          const already = current.includes(emoji);
+          const nextEmojis = already
+            ? current.filter((e) => e !== emoji)
+            : [...current, emoji];
+          const fieldPath = `reactions.${emoji}`;
+          tx.update(postRef, {
+            [fieldPath]: increment(already ? -1 : 1),
+          });
+          tx.set(
+            reactorRef,
+            {
+              uid: user.uid,
+              emojis: nextEmojis,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        });
+      } catch (e) {
+        console.warn("[freedom] reaction toggle failed", e);
+      }
+    },
+    [user]
+  );
 }
 
 /**

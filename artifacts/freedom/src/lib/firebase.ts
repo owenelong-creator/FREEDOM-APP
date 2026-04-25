@@ -29,6 +29,7 @@ import {
   deleteDoc,
   updateDoc,
   increment,
+  runTransaction,
   enableIndexedDbPersistence,
 } from "firebase/firestore";
 import {
@@ -95,6 +96,7 @@ export {
   deleteDoc,
   updateDoc,
   increment,
+  runTransaction,
   storageRef,
   uploadBytes,
   getDownloadURL,

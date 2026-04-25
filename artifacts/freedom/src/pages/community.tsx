@@ -19,6 +19,7 @@ import {
   useCommunityFeed,
   useAddCommunityPost,
   useToggleCommunityReaction,
+  useMyPostReaction,
   useUpdateCommunityPost,
   useDeleteCommunityPost,
   usePostComments,
@@ -588,7 +589,13 @@ function PostCard({
   const toggleRemote = useToggleCommunityReaction();
   const updatePost = useUpdateCommunityPost();
   const deletePost = useDeleteCommunityPost();
-  const userReacted = userReactions[post.id] || {};
+  const isLocalPost = post.id.startsWith("local-");
+  const remoteReactions = useMyPostReaction(post.id, isLocalPost ? null : myUid);
+  const localReacted = userReactions[post.id] || {};
+  const userReacted: Record<string, boolean> = isLocalPost
+    ? localReacted
+    : Object.fromEntries(Array.from(remoteReactions).map((e) => [e, true]));
+  const [reactionPending, setReactionPending] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(post.message);
   const [editImage, setEditImage] = useState<string | null>(post.imageUrl || null);
@@ -602,10 +609,19 @@ function PostCard({
     if (defaultCommentsOpen) setCommentsOpen(true);
   }, [defaultCommentsOpen]);
 
-  const handleClick = (emoji: string) => {
-    const wasLiked = !!userReacted[emoji];
-    toggleReaction(post.id, emoji);
-    toggleRemote(post.id, emoji, wasLiked);
+  const handleClick = async (emoji: string) => {
+    if (reactionPending) return;
+    if (isLocalPost) {
+      toggleReaction(post.id, emoji);
+      return;
+    }
+    if (!myUid) return;
+    setReactionPending(true);
+    try {
+      await toggleRemote(post.id, emoji);
+    } finally {
+      setReactionPending(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -717,20 +733,23 @@ function PostCard({
       <div className="flex flex-wrap gap-2 pt-1 items-center">
         {REACTION_EMOJIS.map((emoji) => {
           const baseCount = Math.max(0, post.reactions[emoji] || 0);
-          const isLocal = post.id.startsWith("local-");
-          const myAdd = isLocal && userReacted[emoji] ? 1 : 0;
+          const myAdd = isLocalPost && userReacted[emoji] ? 1 : 0;
           const total = baseCount + myAdd;
           const liked = !!userReacted[emoji];
+          const disabled =
+            (!isLocalPost && !myUid) || (!isLocalPost && reactionPending);
           return (
             <button
               key={emoji}
               onClick={() => handleClick(emoji)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono border transition-colors ${
+              disabled={disabled}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 liked
                   ? "bg-primary/15 border-primary/40 text-primary"
                   : "bg-muted/40 border-border text-muted-foreground hover:bg-muted"
               }`}
               data-testid={`reaction-${post.id}-${emoji}`}
+              aria-pressed={liked}
             >
               <span>{emoji}</span>
               {total > 0 && <span>{total}</span>}

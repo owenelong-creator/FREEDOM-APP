@@ -1,6 +1,71 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Phone, MessageSquare, ShieldAlert } from "lucide-react";
 import { useFreedom } from "@/lib/context";
+
+function HelpResourcesCard() {
+  return (
+    <div
+      className="w-full max-w-sm bg-card/70 backdrop-blur border border-border/60 rounded-lg p-3 space-y-2"
+      data-testid="help-resources"
+    >
+      <div className="flex items-center gap-2">
+        <ShieldAlert size={14} className="text-destructive" />
+        <h3 className="font-mono text-[10px] uppercase tracking-widest text-foreground">
+          Need immediate help?
+        </h3>
+      </div>
+
+      <div className="space-y-1">
+        <a
+          href="tel:988"
+          className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 active:bg-muted transition-colors"
+          data-testid="hotline-988"
+        >
+          <Phone size={14} className="text-primary mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm text-foreground font-medium">988</div>
+            <div className="text-[10px] text-muted-foreground leading-tight">
+              Suicide & Crisis Lifeline · 24/7
+            </div>
+          </div>
+        </a>
+
+        <a
+          href="tel:18006624357"
+          className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 active:bg-muted transition-colors"
+          data-testid="hotline-samhsa"
+        >
+          <Phone size={14} className="text-primary mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm text-foreground font-medium">
+              1-800-662-HELP (4357)
+            </div>
+            <div className="text-[10px] text-muted-foreground leading-tight">
+              SAMHSA Helpline · substance use & mental health
+            </div>
+          </div>
+        </a>
+
+        <a
+          href="sms:741741?body=HOME"
+          className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 active:bg-muted transition-colors"
+          data-testid="hotline-text"
+        >
+          <MessageSquare size={14} className="text-primary mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm text-foreground font-medium">
+              Text HOME to 741741
+            </div>
+            <div className="text-[10px] text-muted-foreground leading-tight">
+              Crisis Text Line · free, confidential
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+  );
+}
 
 const DURATION_SECONDS = 300; // 5 minutes
 
@@ -139,7 +204,7 @@ export default function UrgeSurfModal() {
           </AnimatePresence>
         </div>
 
-        <div className="mt-16 h-32 flex items-center justify-center w-full max-w-sm text-center px-4">
+        <div className="mt-12 h-28 flex items-center justify-center w-full max-w-sm text-center px-4">
           <AnimatePresence mode="wait">
             <motion.p
               key={quoteIndex}
@@ -155,7 +220,8 @@ export default function UrgeSurfModal() {
         </div>
       </div>
 
-      <div className="h-24 flex items-end pb-8">
+      <div className="w-full flex flex-col items-center gap-4 pb-6">
+        <HelpResourcesCard />
         {showExitEarly ? (
           <button
             onClick={() => handleFinish(false)}

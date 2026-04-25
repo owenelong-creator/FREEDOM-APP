@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { format, startOfWeek, addWeeks, isSameWeek } from "date-fns";
-import { Shield, Sun, Moon, LogOut, UserCircle, ShieldAlert, ChevronRight } from "lucide-react";
+import { Shield, Sun, Moon, LogOut, UserCircle, ShieldAlert, ChevronRight, BookOpen } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useIsAdmin } from "@/lib/admin";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function Settings() {
-  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme, usernameCooldownRemainingMs } = useFreedom();
+  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme, showDailyVerse, setShowDailyVerse, usernameCooldownRemainingMs } = useFreedom();
   const { user, signOut, configured } = useAuth();
   const isAdmin = useIsAdmin();
 
@@ -220,6 +220,46 @@ export default function Settings() {
                 style={{ transform: theme === "dark" ? "translateX(28px)" : "translateX(0)" }}
               />
             </button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground border-b border-border pb-2">
+            Daily Scripture
+          </h3>
+          <div className="bg-card border border-border p-4 rounded-lg space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <BookOpen size={18} className="text-primary shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm text-foreground font-medium">
+                    Show Daily Bible Verses
+                  </div>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    {showDailyVerse ? "On" : "Off"}
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={showDailyVerse}
+                onClick={() => setShowDailyVerse(!showDailyVerse)}
+                className={`relative w-14 h-7 rounded-full transition-colors shrink-0 ${
+                  showDailyVerse ? "bg-primary" : "bg-muted-foreground/30"
+                }`}
+                data-testid="button-daily-verse-toggle"
+              >
+                <span
+                  className="absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-background shadow transition-transform"
+                  style={{ transform: showDailyVerse ? "translateX(28px)" : "translateX(0)" }}
+                />
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Optional. When on, a single encouraging Bible verse appears on
+              your home screen each day — focused on self-control, renewing
+              the mind, and strength in weakness. Off by default.
+            </p>
           </div>
         </div>
 

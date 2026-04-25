@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { differenceInSeconds } from "date-fns";
 import { motion } from "framer-motion";
 import { useFreedom } from "@/lib/context";
+import { VERSES } from "@/lib/verses";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -119,7 +120,7 @@ const MILESTONES = [
 ];
 
 export default function Home() {
-  const { startDate, setStartDate, urgeSessions, resetAll, reasons } = useFreedom();
+  const { startDate, setStartDate, urgeSessions, resetAll, reasons, showDailyVerse } = useFreedom();
   const [now, setNow] = useState(new Date());
   
   const [resetStep, setResetStep] = useState(1);
@@ -139,6 +140,16 @@ export default function Home() {
   const dailyQuote = useMemo(
     () => DAILY_QUOTES[dayOfYear(now) % DAILY_QUOTES.length],
     // changes once per calendar day
+    [now.getFullYear(), now.getMonth(), now.getDate()]
+  );
+
+  // Daily Bible verse — index drifts each day, plus a small year-based offset
+  // so two adjacent years don't show the exact same calendar-day verse.
+  const dailyVerse = useMemo(
+    () =>
+      VERSES[
+        (dayOfYear(now) + now.getFullYear() * 7) % VERSES.length
+      ],
     [now.getFullYear(), now.getMonth(), now.getDate()]
   );
 
@@ -287,6 +298,32 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Daily Bible verse (optional, off by default — set in Settings) */}
+      {showDailyVerse && (
+        <div
+          className="bg-card border border-card-border rounded-2xl px-6 py-5 mx-1"
+          data-testid="daily-verse"
+        >
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary">
+              Daily Scripture
+            </div>
+            <div
+              className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70"
+              data-testid="daily-verse-ref"
+            >
+              {dailyVerse.ref}
+            </div>
+          </div>
+          <p
+            className="text-foreground font-serif text-base leading-snug"
+            data-testid="daily-verse-text"
+          >
+            “{dailyVerse.text}”
+          </p>
         </div>
       )}
 

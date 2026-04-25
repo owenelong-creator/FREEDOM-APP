@@ -93,6 +93,8 @@ export type FreedomContextType = {
   toggleReaction: (postId: string, emoji: string) => void;
   theme: "light" | "dark";
   setTheme: (t: "light" | "dark") => void;
+  showDailyVerse: boolean;
+  setShowDailyVerse: (val: boolean) => void;
   resetAll: () => void;
 };
 
@@ -118,6 +120,15 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
   const [myPosts, setMyPosts] = useState<CommunityPost[]>(() => JSON.parse(localStorage.getItem("freedom_my_posts") || "[]"));
   const [reactions, setReactions] = useState<Record<string, Record<string, number>>>(() => JSON.parse(localStorage.getItem("freedom_reactions") || "{}"));
   const [theme, setThemeState] = useState<"light" | "dark">(() => (localStorage.getItem("freedom_theme") as "light" | "dark") || "dark");
+  const [showDailyVerse, setShowDailyVerseState] = useState<boolean>(
+    () => localStorage.getItem("freedom_show_daily_verse") === "1"
+  );
+
+  useEffect(() => {
+    localStorage.setItem("freedom_show_daily_verse", showDailyVerse ? "1" : "0");
+  }, [showDailyVerse]);
+
+  const setShowDailyVerse = useCallback((val: boolean) => setShowDailyVerseState(val), []);
 
   useEffect(() => {
     localStorage.setItem("freedom_theme", theme);
@@ -137,6 +148,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     appName,
     theme,
     reasons,
+    showDailyVerse,
     onRemoteLoad: (remote) => {
       setStartDate(remote.startDate);
       setUrgeSessions(remote.urgeSessions as UrgeSession[]);
@@ -149,6 +161,9 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
       } else if (typeof remote.whyReason === "string" && remote.whyReason.trim()) {
         // Legacy remote: migrate single string into one reason
         setReasons(migrateReasons(remote.whyReason, null));
+      }
+      if (typeof remote.showDailyVerse === "boolean") {
+        setShowDailyVerseState(remote.showDailyVerse);
       }
     },
   });
@@ -249,6 +264,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     setJournalEntries([]);
     setFortressItems([]);
     setReasons([]);
+    setShowDailyVerseState(false);
   }, []);
 
   const setAppName = useCallback((name: string): { ok: boolean; error?: string } => {
@@ -353,6 +369,8 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
         toggleReaction,
         theme,
         setTheme,
+        showDailyVerse,
+        setShowDailyVerse,
         resetAll,
       }}
     >

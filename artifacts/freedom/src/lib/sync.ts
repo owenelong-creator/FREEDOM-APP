@@ -22,6 +22,7 @@ type UserDoc = {
   appName: string;
   theme: "light" | "dark";
   reasons: SyncedReason[];
+  showDailyVerse: boolean;
   // Legacy single-string field, retained on read so we can migrate older docs.
   whyReason?: string;
   updatedAt: number;
@@ -35,6 +36,7 @@ type Loaded = {
   appName?: string;
   theme?: "light" | "dark";
   reasons?: SyncedReason[];
+  showDailyVerse?: boolean;
   whyReason?: string;
 };
 
@@ -59,6 +61,7 @@ export function useFirestoreSync(args: {
   appName: string;
   theme: "light" | "dark";
   reasons: SyncedReason[];
+  showDailyVerse: boolean;
   onRemoteLoad: (data: Loaded) => void;
 }) {
   const { user } = useAuth();
@@ -72,7 +75,7 @@ export function useFirestoreSync(args: {
   const serializeForCompare = (
     data: Pick<
       UserDoc,
-      "startDate" | "urgeSessions" | "journalEntries" | "fortressItems" | "appName" | "theme" | "reasons"
+      "startDate" | "urgeSessions" | "journalEntries" | "fortressItems" | "appName" | "theme" | "reasons" | "showDailyVerse"
     >
   ) =>
     JSON.stringify({
@@ -83,6 +86,7 @@ export function useFirestoreSync(args: {
       appName: data.appName,
       theme: data.theme,
       reasons: data.reasons,
+      showDailyVerse: data.showDailyVerse,
     });
 
   const applyRemote = (data: UserDoc) => {
@@ -109,6 +113,8 @@ export function useFirestoreSync(args: {
       appName: data.appName,
       theme: data.theme,
       reasons: remoteReasons,
+      showDailyVerse:
+        typeof data.showDailyVerse === "boolean" ? data.showDailyVerse : undefined,
     };
     // Stamp lastSerialized BEFORE pushing into React state, so the push
     // effect that runs from the resulting state change sees a match and skips.
@@ -120,6 +126,7 @@ export function useFirestoreSync(args: {
       appName: loaded.appName ?? args.appName,
       theme: loaded.theme ?? args.theme,
       reasons: loaded.reasons ?? args.reasons,
+      showDailyVerse: loaded.showDailyVerse ?? args.showDailyVerse,
     });
     onRemoteLoadRef.current(loaded);
   };
@@ -146,6 +153,7 @@ export function useFirestoreSync(args: {
             appName: args.appName,
             theme: args.theme,
             reasons: args.reasons,
+            showDailyVerse: args.showDailyVerse,
           });
         }
       } catch (e) {
@@ -189,6 +197,7 @@ export function useFirestoreSync(args: {
       appName: args.appName,
       theme: args.theme,
       reasons: args.reasons,
+      showDailyVerse: args.showDailyVerse,
     });
     if (compareKey === lastSerialized.current) return;
     lastSerialized.current = compareKey;
@@ -201,6 +210,7 @@ export function useFirestoreSync(args: {
       appName: args.appName,
       theme: args.theme,
       reasons: args.reasons,
+      showDailyVerse: args.showDailyVerse,
       updatedAt: Date.now(),
     };
     const ref = doc(db, "users", user.uid);
@@ -216,5 +226,6 @@ export function useFirestoreSync(args: {
     args.appName,
     args.theme,
     args.reasons,
+    args.showDailyVerse,
   ]);
 }

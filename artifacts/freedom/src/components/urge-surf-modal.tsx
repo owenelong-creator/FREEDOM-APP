@@ -6,63 +6,54 @@ import { useFreedom } from "@/lib/context";
 function HelpResourcesCard() {
   return (
     <div
-      className="w-full max-w-sm bg-card/70 backdrop-blur border border-border/60 rounded-lg p-3 space-y-2"
+      className="w-full max-w-xs bg-card/70 backdrop-blur border border-border/60 rounded-lg px-3 py-2"
       data-testid="help-resources"
     >
-      <div className="flex items-center gap-2">
-        <ShieldAlert size={14} className="text-destructive" />
-        <h3 className="font-mono text-[10px] uppercase tracking-widest text-foreground">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <ShieldAlert size={11} className="text-destructive" />
+        <h3 className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
           Need immediate help?
         </h3>
       </div>
 
-      <div className="space-y-1">
-        <a
-          href="tel:988"
-          className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 active:bg-muted transition-colors"
-          data-testid="hotline-988"
-        >
-          <Phone size={14} className="text-primary mt-0.5 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-foreground font-medium">988</div>
-            <div className="text-[10px] text-muted-foreground leading-tight">
-              Suicide & Crisis Lifeline · 24/7
-            </div>
-          </div>
-        </a>
-
-        <a
-          href="tel:18006624357"
-          className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 active:bg-muted transition-colors"
-          data-testid="hotline-samhsa"
-        >
-          <Phone size={14} className="text-primary mt-0.5 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-foreground font-medium">
-              1-800-662-HELP (4357)
-            </div>
-            <div className="text-[10px] text-muted-foreground leading-tight">
-              SAMHSA Helpline · substance use & mental health
-            </div>
-          </div>
-        </a>
-
-        <a
-          href="sms:741741?body=HOME"
-          className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 active:bg-muted transition-colors"
-          data-testid="hotline-text"
-        >
-          <MessageSquare size={14} className="text-primary mt-0.5 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-foreground font-medium">
-              Text HOME to 741741
-            </div>
-            <div className="text-[10px] text-muted-foreground leading-tight">
-              Crisis Text Line · free, confidential
-            </div>
-          </div>
-        </a>
-      </div>
+      <ul className="divide-y divide-border/40">
+        <li>
+          <a
+            href="tel:988"
+            className="flex items-center justify-between py-1.5 hover:text-primary transition-colors"
+            data-testid="hotline-988"
+          >
+            <span className="text-[11px] text-muted-foreground">Crisis Lifeline</span>
+            <span className="flex items-center gap-1.5 text-sm text-foreground font-medium">
+              <Phone size={11} className="text-primary" /> 988
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="tel:18006624357"
+            className="flex items-center justify-between py-1.5 hover:text-primary transition-colors"
+            data-testid="hotline-samhsa"
+          >
+            <span className="text-[11px] text-muted-foreground">SAMHSA</span>
+            <span className="flex items-center gap-1.5 text-sm text-foreground font-medium">
+              <Phone size={11} className="text-primary" /> 1-800-662-4357
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="sms:741741?body=HOME"
+            className="flex items-center justify-between py-1.5 hover:text-primary transition-colors"
+            data-testid="hotline-text"
+          >
+            <span className="text-[11px] text-muted-foreground">Text Line</span>
+            <span className="flex items-center gap-1.5 text-sm text-foreground font-medium">
+              <MessageSquare size={11} className="text-primary" /> HOME → 741741
+            </span>
+          </a>
+        </li>
+      </ul>
     </div>
   );
 }

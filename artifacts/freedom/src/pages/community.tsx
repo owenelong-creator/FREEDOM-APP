@@ -31,6 +31,7 @@ import {
   type ReportTargetType,
 } from "@/lib/community-store";
 import type { CommunityPost } from "@/lib/context";
+import type { CommentVisibility } from "@/lib/community-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -292,6 +293,7 @@ function CommentRow({
   highlight?: boolean;
   communityBlocked?: boolean;
 }) {
+  const isPrivate = comment.visibility === "private";
   const updateComment = useUpdateComment();
   const deleteComment = useDeleteComment();
   const [editing, setEditing] = useState(false);
@@ -339,6 +341,15 @@ function CommentRow({
               {formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true })}
               {comment.editedAt ? " · edited" : ""}
             </span>
+            {isPrivate && (
+              <span
+                className="text-[9px] font-mono uppercase tracking-widest text-amber-500 border border-amber-500/40 rounded px-1 py-px"
+                title="Only the original poster and you can see this"
+                data-testid={`comment-${comment.id}-private-badge`}
+              >
+                Private
+              </span>
+            )}
           </div>
           <ItemMenu
             isOwner={isOwner}
@@ -409,6 +420,7 @@ function CommentRow({
 
 function CommentThread({
   postId,
+  postOwnerUid,
   myUid,
   myUsername,
   onReport,
@@ -417,6 +429,7 @@ function CommentThread({
   blockedMessage,
 }: {
   postId: string;
+  postOwnerUid?: string;
   myUid?: string;
   myUsername: string;
   onReport: (target: ReportTarget) => void;
@@ -424,7 +437,17 @@ function CommentThread({
   communityBlocked?: boolean;
   blockedMessage?: string;
 }) {
-  const comments = usePostComments(postId, true);
+  const allComments = usePostComments(postId, true);
+  const isPostOwner = !!myUid && !!postOwnerUid && myUid === postOwnerUid;
+  const comments = useMemo(
+    () =>
+      allComments.filter((c) => {
+        if (c.visibility !== "private") return true;
+        if (!myUid) return false;
+        return c.uid === myUid || isPostOwner;
+      }),
+    [allComments, myUid, isPostOwner]
+  );
 
   useEffect(() => {
     if (!focusedCommentId) return;
@@ -436,8 +459,11 @@ function CommentThread({
   const addComment = useAddComment();
   const [draft, setDraft] = useState("");
   const [image, setImage] = useState<string | null>(null);
+  const [visibility, setVisibility] = useState<CommentVisibility>("public");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const canChooseVisibility = !!postOwnerUid && !isPostOwner;
 
   const handleSend = async () => {
     const text = draft.trim();
@@ -445,9 +471,15 @@ function CommentThread({
     setPosting(true);
     setError(null);
     try {
-      await addComment(postId, { message: text, username: myUsername, imageUrl: image });
+      await addComment(postId, {
+        message: text,
+        username: myUsername,
+        imageUrl: image,
+        visibility: canChooseVisibility ? visibility : "public",
+      });
       setDraft("");
       setImage(null);
+      setVisibility("public");
     } catch (e: unknown) {
       const err = e as { message?: string };
       setError(err.message || "Could not post comment.");
@@ -502,6 +534,24 @@ function CommentThread({
             </Button>
           </div>
           <ImageUpload scope="comments" value={image} onChange={setImage} onError={setError} />
+          {canChooseVisibility && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70">
+                Visible to:
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibility((v) => (v === "public" ? "private" : "public"))
+                }
+                className="text-[10px] font-mono uppercase tracking-widest px-2 py-1 rounded border border-border hover:bg-muted/40 transition-colors"
+                data-testid={`comment-visibility-${postId}`}
+                aria-label="Toggle comment visibility"
+              >
+                {visibility === "public" ? "Everyone" : "Only the poster"}
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 pt-2">
@@ -707,6 +757,7 @@ function PostCard({
       {commentsOpen && !post.id.startsWith("local-") && (
         <CommentThread
           postId={post.id}
+          postOwnerUid={post.uid}
           myUid={myUid}
           myUsername={myUsername}
           onReport={onReport}

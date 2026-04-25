@@ -55,6 +55,8 @@ export type ReportRecord = {
 
 export type WarningKind = "warning" | "removal";
 
+export type CommentVisibility = "public" | "private";
+
 export type CommunityComment = {
   id: string;
   uid: string;
@@ -63,6 +65,7 @@ export type CommunityComment = {
   imageUrl?: string | null;
   timestamp: string;
   editedAt?: string | null;
+  visibility: CommentVisibility;
 };
 
 function readLocal(): CommunityPost[] {
@@ -232,6 +235,7 @@ export function usePostComments(postId: string, enabled = true) {
             uid?: string;
             username?: string;
             message?: string;
+            visibility?: CommentVisibility;
             createdAt?: { toMillis?: () => number };
             editedAt?: { toMillis?: () => number };
           };
@@ -242,6 +246,7 @@ export function usePostComments(postId: string, enabled = true) {
             username: data.username || "anon",
             message: data.message || "",
             imageUrl: dataWithImage.imageUrl || null,
+            visibility: data.visibility === "private" ? "private" : "public",
             timestamp: data.createdAt?.toMillis
               ? new Date(data.createdAt.toMillis()).toISOString()
               : new Date().toISOString(),
@@ -267,7 +272,12 @@ export function useAddComment() {
   return useCallback(
     async (
       postId: string,
-      input: { message: string; username: string; imageUrl?: string | null }
+      input: {
+        message: string;
+        username: string;
+        imageUrl?: string | null;
+        visibility?: CommentVisibility;
+      }
     ) => {
       if (!db || !user || postId.startsWith("local-")) {
         throw new Error("Sign in to leave a comment.");
@@ -278,6 +288,7 @@ export function useAddComment() {
         username: input.username,
         message: input.message,
         imageUrl: input.imageUrl || null,
+        visibility: input.visibility === "private" ? "private" : "public",
         createdAt: serverTimestamp(),
       });
     },

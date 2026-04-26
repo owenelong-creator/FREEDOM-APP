@@ -389,7 +389,7 @@ export default function Home() {
             </div>
             <div className="space-y-1">
               <div className="text-3xl font-bold tabular-nums" style={{ color: "hsl(var(--stat))" }}>
-                {urgeSessions.length}
+                {urgeSessions.filter((u) => u.completed).length}
               </div>
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                 Urges Surfed

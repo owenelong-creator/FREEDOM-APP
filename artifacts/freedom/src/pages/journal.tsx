@@ -235,10 +235,11 @@ const COMMON_TAGS = [
 ];
 
 export default function Journal() {
-  const { journalEntries, addJournalEntry, deleteJournalEntry } = useFreedom();
+  const { journalEntries, addJournalEntry, deleteJournalEntry, addUrgeSession } = useFreedom();
   const [text, setText] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [overcameOpen, setOvercameOpen] = useState(false);
 
   const confirmDelete = () => {
     if (pendingDeleteId) {
@@ -255,16 +256,27 @@ export default function Journal() {
 
   const handleSubmit = () => {
     if (!text.trim() && selectedTags.length === 0) return;
-    
+
     addJournalEntry({
       id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
       text: text.trim(),
       tags: selectedTags
     });
-    
+
     setText("");
     setSelectedTags([]);
+    setOvercameOpen(true);
+  };
+
+  const handleOvercameAnswer = (overcame: boolean) => {
+    if (overcame) {
+      addUrgeSession({
+        timestamp: new Date().toISOString(),
+        completed: true,
+      });
+    }
+    setOvercameOpen(false);
   };
 
   const topTriggers = useMemo(() => {
@@ -380,6 +392,32 @@ export default function Journal() {
           ))
         )}
       </div>
+
+      <Dialog open={overcameOpen} onOpenChange={(o) => !o && setOvercameOpen(false)}>
+        <DialogContent className="bg-card border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground font-serif text-xl">Did you overcome this urge?</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              If you got through it, we'll add it to your Urges Surfed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row justify-between sm:justify-between pt-4">
+            <Button
+              variant="ghost"
+              onClick={() => handleOvercameAnswer(false)}
+              data-testid="button-overcame-no"
+            >
+              No
+            </Button>
+            <Button
+              onClick={() => handleOvercameAnswer(true)}
+              data-testid="button-overcame-yes"
+            >
+              Yes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!pendingDeleteId} onOpenChange={(o) => !o && setPendingDeleteId(null)}>
         <DialogContent className="bg-card border-border sm:max-w-md">

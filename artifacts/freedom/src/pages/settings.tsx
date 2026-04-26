@@ -368,7 +368,7 @@ export default function Settings() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-card border border-border p-4 rounded-lg flex flex-col">
-              <span className="text-2xl font-mono text-foreground mb-1">{urgeSessions.length}</span>
+              <span className="text-2xl font-mono text-foreground mb-1">{urgeSessions.filter((u) => u.completed).length}</span>
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Urges Surfed</span>
             </div>
             <div className="bg-card border border-border p-4 rounded-lg flex flex-col">

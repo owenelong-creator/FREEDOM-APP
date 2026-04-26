@@ -1,17 +1,18 @@
 import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { format, startOfWeek, addWeeks, isSameWeek } from "date-fns";
-import { Shield, Sun, Moon, LogOut, UserCircle, ShieldAlert, ChevronRight, BookOpen } from "lucide-react";
+import { Shield, Sun, Moon, LogOut, UserCircle, ShieldAlert, ChevronRight, BookOpen, Palette, Check } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useIsAdmin } from "@/lib/admin";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useFreedom } from "@/lib/context";
+import { THEME_LIST } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function Settings() {
-  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme, showDailyVerse, setShowDailyVerse, usernameCooldownRemainingMs } = useFreedom();
+  const { startDate, setStartDate, urgeSessions, journalEntries, fortressItems, resetAll, appName, setAppName, theme, setTheme, themePreset, setThemePreset, showDailyVerse, setShowDailyVerse, usernameCooldownRemainingMs } = useFreedom();
   const { user, signOut, configured } = useAuth();
   const isAdmin = useIsAdmin();
 
@@ -220,6 +221,52 @@ export default function Settings() {
                 style={{ transform: theme === "dark" ? "translateX(28px)" : "translateX(0)" }}
               />
             </button>
+          </div>
+
+          <div className="bg-card border border-border p-4 rounded-lg space-y-3">
+            <div className="flex items-center gap-3">
+              <Palette size={18} className="text-primary shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm text-foreground font-medium">Themes</div>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Pick a backdrop
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {THEME_LIST.map((t) => {
+                const isActive = themePreset === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setThemePreset(t.id)}
+                    aria-pressed={isActive}
+                    className={`relative overflow-hidden rounded-lg border text-left transition-colors ${
+                      isActive
+                        ? "border-primary ring-1 ring-primary"
+                        : "border-border hover:border-muted-foreground/50"
+                    }`}
+                    data-testid={`button-theme-${t.id}`}
+                  >
+                    <div
+                      aria-hidden="true"
+                      className="h-16 w-full bg-cover bg-center bg-muted"
+                      style={t.bgUrl ? { backgroundImage: `url("${t.bgUrl}")` } : undefined}
+                    />
+                    <div className="px-2.5 py-2 bg-card flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-foreground truncate">
+                        {t.label}
+                      </span>
+                      {isActive && <Check size={14} className="text-primary shrink-0" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Backgrounds stay subtle so your stats and journal remain easy to read.
+            </p>
           </div>
         </div>
 

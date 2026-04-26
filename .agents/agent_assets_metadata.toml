@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "d5q9CSb9ZE4Q8j1zcvfD4"
@@ -12,3 +11,81 @@ id = "kWXEvFNDLlLs0gPpZHzsi"
 uri = "file://artifacts/freedom/public/icon-192.png"
 type = "image"
 title = "Freedom app icon 192"
+
+[[generated]]
+id = "6PYYBJl4WuV0oqVD9bPut"
+uri = "file://attached_assets/generated_images/theme_sunset.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "Vmq0NrSiZmk4RLQgSQLet"
+uri = "file://attached_assets/generated_images/theme_night_city.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "0aTO68cxXvqhNekMv1C1B"
+uri = "file://attached_assets/stock_images/theme_beach.jpg"
+type = "image"
+title = "tropical beach turquoise water aerial"
+
+[[outputs]]
+id = "4MS9UFbZX_Roy1D88q49L"
+uri = "file://attached_assets/stock_images/theme_mountain.jpg"
+type = "image"
+title = "snowy mountain landscape misty alpine"
+
+[[outputs]]
+id = "w4yd5iwPrGFYRQwzMcwLk"
+uri = "file://attached_assets/stock_images/theme_sunset.jpg"
+type = "image"
+title = "sunset sky orange purple clouds"
+
+[[outputs]]
+id = "gc59PND6MvLiWhfgfC7Kh"
+uri = "file://attached_assets/stock_images/theme_forest.jpg"
+type = "image"
+title = "lush green forest morning sunlight"
+
+[[outputs]]
+id = "vhF0U7PJKIsEVx-XyPqVi"
+uri = "file://attached_assets/stock_images/theme_night_city.jpg"
+type = "image"
+title = "city skyline at night with lights"
+
+[[outputs]]
+id = "pRlHSgy9Cll4l2X2Ey4pM"
+uri = "file://attached_assets/stock_images/theme_sunset_v2_1.jpg"
+type = "image"
+title = "golden hour sky over calm ocean horizon clouds"
+
+[[outputs]]
+id = "VsBfYkFxis_Pqrq_hE8V7"
+uri = "file://attached_assets/stock_images/theme_sunset_v2_2.jpg"
+type = "image"
+title = "golden hour sky over calm ocean horizon clouds"
+
+[[outputs]]
+id = "1MoDbrKkBA7yVOpgiHKIl"
+uri = "file://attached_assets/stock_images/theme_sunset_v2_3.jpg"
+type = "image"
+title = "golden hour sky over calm ocean horizon clouds"
+
+[[outputs]]
+id = "Q32_CazXdoCjRdXgQmsW8"
+uri = "file://attached_assets/stock_images/theme_night_city_v2_1.jpg"
+type = "image"
+title = "night cityscape skyline glowing windows skyscrapers"
+
+[[outputs]]
+id = "nRaKzsWm3woM-gsqpFNgL"
+uri = "file://attached_assets/stock_images/theme_night_city_v2_2.jpg"
+type = "image"
+title = "night cityscape skyline glowing windows skyscrapers"
+
+[[outputs]]
+id = "RCwxaWTIWrIP1U3GNZrCN"
+uri = "file://attached_assets/stock_images/theme_night_city_v2_3.jpg"
+type = "image"
+title = "night cityscape skyline glowing windows skyscrapers"

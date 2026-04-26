@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useFirestoreSync } from "./sync";
+import { isThemePreset, type ThemePreset } from "./themes";
 
 export type UrgeSession = {
   timestamp: string;
@@ -93,6 +94,8 @@ export type FreedomContextType = {
   toggleReaction: (postId: string, emoji: string) => void;
   theme: "light" | "dark";
   setTheme: (t: "light" | "dark") => void;
+  themePreset: ThemePreset;
+  setThemePreset: (preset: ThemePreset) => void;
   showDailyVerse: boolean;
   setShowDailyVerse: (val: boolean) => void;
   resetAll: () => void;
@@ -120,9 +123,19 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
   const [myPosts, setMyPosts] = useState<CommunityPost[]>(() => JSON.parse(localStorage.getItem("freedom_my_posts") || "[]"));
   const [reactions, setReactions] = useState<Record<string, Record<string, number>>>(() => JSON.parse(localStorage.getItem("freedom_reactions") || "{}"));
   const [theme, setThemeState] = useState<"light" | "dark">(() => (localStorage.getItem("freedom_theme") as "light" | "dark") || "dark");
+  const [themePreset, setThemePresetState] = useState<ThemePreset>(() => {
+    const v = localStorage.getItem("freedom_theme_preset");
+    return isThemePreset(v) ? v : "default";
+  });
   const [showDailyVerse, setShowDailyVerseState] = useState<boolean>(
     () => localStorage.getItem("freedom_show_daily_verse") === "1"
   );
+
+  useEffect(() => {
+    localStorage.setItem("freedom_theme_preset", themePreset);
+  }, [themePreset]);
+
+  const setThemePreset = useCallback((preset: ThemePreset) => setThemePresetState(preset), []);
 
   useEffect(() => {
     localStorage.setItem("freedom_show_daily_verse", showDailyVerse ? "1" : "0");
@@ -149,6 +162,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     theme,
     reasons,
     showDailyVerse,
+    themePreset,
     onRemoteLoad: (remote) => {
       setStartDate(remote.startDate);
       setUrgeSessions(remote.urgeSessions as UrgeSession[]);
@@ -164,6 +178,9 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
       }
       if (typeof remote.showDailyVerse === "boolean") {
         setShowDailyVerseState(remote.showDailyVerse);
+      }
+      if (isThemePreset(remote.themePreset)) {
+        setThemePresetState(remote.themePreset);
       }
     },
   });
@@ -265,6 +282,7 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
     setFortressItems([]);
     setReasons([]);
     setShowDailyVerseState(false);
+    setThemePresetState("default");
   }, []);
 
   const setAppName = useCallback((name: string): { ok: boolean; error?: string } => {
@@ -369,6 +387,8 @@ export function FreedomProvider({ children }: { children: React.ReactNode }) {
         toggleReaction,
         theme,
         setTheme,
+        themePreset,
+        setThemePreset,
         showDailyVerse,
         setShowDailyVerse,
         resetAll,

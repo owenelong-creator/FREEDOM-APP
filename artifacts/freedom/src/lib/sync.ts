@@ -23,6 +23,7 @@ type UserDoc = {
   theme: "light" | "dark";
   reasons: SyncedReason[];
   showDailyVerse: boolean;
+  themePreset: string;
   // Legacy single-string field, retained on read so we can migrate older docs.
   whyReason?: string;
   updatedAt: number;
@@ -37,6 +38,7 @@ type Loaded = {
   theme?: "light" | "dark";
   reasons?: SyncedReason[];
   showDailyVerse?: boolean;
+  themePreset?: string;
   whyReason?: string;
 };
 
@@ -62,6 +64,7 @@ export function useFirestoreSync(args: {
   theme: "light" | "dark";
   reasons: SyncedReason[];
   showDailyVerse: boolean;
+  themePreset: string;
   onRemoteLoad: (data: Loaded) => void;
 }) {
   const { user } = useAuth();
@@ -75,7 +78,7 @@ export function useFirestoreSync(args: {
   const serializeForCompare = (
     data: Pick<
       UserDoc,
-      "startDate" | "urgeSessions" | "journalEntries" | "fortressItems" | "appName" | "theme" | "reasons" | "showDailyVerse"
+      "startDate" | "urgeSessions" | "journalEntries" | "fortressItems" | "appName" | "theme" | "reasons" | "showDailyVerse" | "themePreset"
     >
   ) =>
     JSON.stringify({
@@ -87,6 +90,7 @@ export function useFirestoreSync(args: {
       theme: data.theme,
       reasons: data.reasons,
       showDailyVerse: data.showDailyVerse,
+      themePreset: data.themePreset,
     });
 
   const applyRemote = (data: UserDoc) => {
@@ -115,6 +119,8 @@ export function useFirestoreSync(args: {
       reasons: remoteReasons,
       showDailyVerse:
         typeof data.showDailyVerse === "boolean" ? data.showDailyVerse : undefined,
+      themePreset:
+        typeof data.themePreset === "string" ? data.themePreset : undefined,
     };
     // Stamp lastSerialized BEFORE pushing into React state, so the push
     // effect that runs from the resulting state change sees a match and skips.
@@ -127,6 +133,7 @@ export function useFirestoreSync(args: {
       theme: loaded.theme ?? args.theme,
       reasons: loaded.reasons ?? args.reasons,
       showDailyVerse: loaded.showDailyVerse ?? args.showDailyVerse,
+      themePreset: loaded.themePreset ?? args.themePreset,
     });
     onRemoteLoadRef.current(loaded);
   };
@@ -154,6 +161,7 @@ export function useFirestoreSync(args: {
             theme: args.theme,
             reasons: args.reasons,
             showDailyVerse: args.showDailyVerse,
+            themePreset: args.themePreset,
           });
         }
       } catch (e) {
@@ -198,6 +206,7 @@ export function useFirestoreSync(args: {
       theme: args.theme,
       reasons: args.reasons,
       showDailyVerse: args.showDailyVerse,
+      themePreset: args.themePreset,
     });
     if (compareKey === lastSerialized.current) return;
     lastSerialized.current = compareKey;
@@ -211,6 +220,7 @@ export function useFirestoreSync(args: {
       theme: args.theme,
       reasons: args.reasons,
       showDailyVerse: args.showDailyVerse,
+      themePreset: args.themePreset,
       updatedAt: Date.now(),
     };
     const ref = doc(db, "users", user.uid);
@@ -227,5 +237,6 @@ export function useFirestoreSync(args: {
     args.theme,
     args.reasons,
     args.showDailyVerse,
+    args.themePreset,
   ]);
 }

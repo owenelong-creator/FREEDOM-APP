@@ -16,9 +16,12 @@ import {
   doc,
   setDoc,
   getDoc,
+  getDocs,
   collection,
+  collectionGroup,
   addDoc,
   query,
+  where,
   orderBy,
   limit,
   onSnapshot,
@@ -26,8 +29,17 @@ import {
   deleteDoc,
   updateDoc,
   increment,
+  runTransaction,
   enableIndexedDbPersistence,
 } from "firebase/firestore";
+import {
+  getStorage,
+  FirebaseStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
@@ -45,12 +57,13 @@ export const isFirebaseConfigured = Boolean(
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 if (isFirebaseConfigured) {
   app = initializeApp(config as Required<typeof config>);
   auth = getAuth(app);
   db = getFirestore(app);
-  // Best-effort offline cache; ignored if not supported (Safari private mode etc).
+  storage = getStorage(app);
   enableIndexedDbPersistence(db).catch(() => {
     /* ignore — multiple tabs or unsupported browser */
   });
@@ -60,6 +73,7 @@ export {
   app,
   auth,
   db,
+  storage,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -69,9 +83,12 @@ export {
   doc,
   setDoc,
   getDoc,
+  getDocs,
   collection,
+  collectionGroup,
   addDoc,
   query,
+  where,
   orderBy,
   limit,
   onSnapshot,
@@ -79,5 +96,10 @@ export {
   deleteDoc,
   updateDoc,
   increment,
+  runTransaction,
+  storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
 };
 export type { User };

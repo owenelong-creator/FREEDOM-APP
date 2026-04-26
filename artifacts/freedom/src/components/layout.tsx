@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Clock, BookOpen, Shield, Settings, AlertCircle, Users } from "lucide-react";
 import { useFreedom } from "@/lib/context";
+import { THEMES } from "@/lib/themes";
 import UrgeSurfModal from "./urge-surf-modal";
 
 const navItems = [
@@ -14,8 +15,30 @@ const navItems = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { isUrgeSurfing, setIsUrgeSurfing } = useFreedom();
+  const { isUrgeSurfing, setIsUrgeSurfing, themePreset } = useFreedom();
   const [firstTapDone, setFirstTapDone] = useState(false);
+  const activeTheme = THEMES[themePreset] ?? THEMES.default;
+
+  // Apply theme accent color overrides as CSS variables on <html>.
+  useEffect(() => {
+    const root = document.documentElement;
+    const vars: Array<[string, string | undefined]> = [
+      ["--primary", activeTheme.primary],
+      ["--ring", activeTheme.primary],
+      ["--sidebar-primary", activeTheme.primary],
+      ["--sidebar-ring", activeTheme.primary],
+      ["--accent", activeTheme.accent],
+      ["--primary-border", activeTheme.primaryBorder],
+      ["--accent-border", activeTheme.accentBorder],
+    ];
+    for (const [key, val] of vars) {
+      if (val) root.style.setProperty(key, val);
+      else root.style.removeProperty(key);
+    }
+    return () => {
+      for (const [key] of vars) root.style.removeProperty(key);
+    };
+  }, [activeTheme]);
 
   const handleFirstTap = () => {
     if (firstTapDone) return;
@@ -26,7 +49,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background text-foreground overflow-x-hidden">
+    <div className="min-h-[100dvh] flex flex-col bg-background text-foreground overflow-x-hidden relative">
+      {activeTheme.bgUrl && (
+        <>
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat pointer-events-none"
+            style={{ backgroundImage: `url("${activeTheme.bgUrl}")` }}
+          />
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 z-0 bg-background pointer-events-none"
+            style={{ opacity: activeTheme.overlayOpacity }}
+          />
+        </>
+      )}
       <main
         className="flex-1 w-full max-w-md mx-auto relative px-4"
         style={{ paddingBottom: "calc(120px + env(safe-area-inset-bottom))" }}

@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-20", "web", "bash"]
 
 [deployment]
 router = "application"
@@ -9,15 +9,18 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
-runButton = "Project"
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
 
 [[ports]]
 localPort = 8080
@@ -29,7 +32,11 @@ externalPort = 80
 
 [[ports]]
 localPort = 8082
+<<<<<<< HEAD
 externalPort = 3001
+=======
+externalPort = 3002
+>>>>>>> 0fae5482d9e79033575942ae9d1912067f39b66e
 
 [[ports]]
 localPort = 24931
@@ -37,6 +44,7 @@ externalPort = 3000
 
 [nix]
 channel = "stable-25_05"
+packages = ["killall"]
 
 [userenv]
 

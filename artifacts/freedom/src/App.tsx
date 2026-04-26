@@ -5,13 +5,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { FreedomProvider } from "@/lib/context";
 import { AuthProvider } from "@/lib/auth-context";
 import AuthGate from "@/components/auth-gate";
+import WelcomeModal from "@/components/welcome-modal";
 import Layout from "@/components/layout";
 import Home from "@/pages/home";
 import Journal from "@/pages/journal";
 import Community from "@/pages/community";
 import Fortress from "@/pages/fortress";
 import Settings from "@/pages/settings";
+import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
+import WarningNotifications from "@/components/warning-notifications";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +27,7 @@ function Router() {
         <Route path="/community" component={Community} />
         <Route path="/fortress" component={Fortress} />
         <Route path="/settings" component={Settings} />
+        <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -40,6 +44,8 @@ function App() {
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                 <Router />
               </WouterRouter>
+              <WelcomeModal />
+              <WarningNotifications />
               <Toaster />
             </TooltipProvider>
           </FreedomProvider>

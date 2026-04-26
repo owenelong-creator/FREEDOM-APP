@@ -42,7 +42,7 @@ export const THEMES: Record<ThemePreset, ThemeDefinition> = {
     primaryBorder: "hsl(188 70% 45% / 0.45)",
     accent: "185 75% 55%",
     accentBorder: "hsl(185 75% 55% / 0.45)",
-    overlayOpacity: 0.78,
+    overlayOpacity: 0.45,
   },
   mountain: {
     id: "mountain",
@@ -53,7 +53,7 @@ export const THEMES: Record<ThemePreset, ThemeDefinition> = {
     primaryBorder: "hsl(210 50% 55% / 0.45)",
     accent: "200 55% 65%",
     accentBorder: "hsl(200 55% 65% / 0.45)",
-    overlayOpacity: 0.8,
+    overlayOpacity: 0.5,
   },
   sunset: {
     id: "sunset",
@@ -64,7 +64,7 @@ export const THEMES: Record<ThemePreset, ThemeDefinition> = {
     primaryBorder: "hsl(22 80% 58% / 0.45)",
     accent: "12 85% 65%",
     accentBorder: "hsl(12 85% 65% / 0.45)",
-    overlayOpacity: 0.78,
+    overlayOpacity: 0.45,
   },
   forest: {
     id: "forest",
@@ -75,7 +75,7 @@ export const THEMES: Record<ThemePreset, ThemeDefinition> = {
     primaryBorder: "hsl(148 50% 42% / 0.45)",
     accent: "140 55% 52%",
     accentBorder: "hsl(140 55% 52% / 0.45)",
-    overlayOpacity: 0.82,
+    overlayOpacity: 0.5,
   },
   "night-city": {
     id: "night-city",
@@ -86,7 +86,7 @@ export const THEMES: Record<ThemePreset, ThemeDefinition> = {
     primaryBorder: "hsl(225 65% 62% / 0.45)",
     accent: "260 60% 68%",
     accentBorder: "hsl(260 60% 68% / 0.45)",
-    overlayOpacity: 0.8,
+    overlayOpacity: 0.5,
   },
 };
 
